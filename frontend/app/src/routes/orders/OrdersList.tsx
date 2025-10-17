@@ -184,28 +184,43 @@ export default function OrdersList() {
 }
 
 function EditOrderForm({ order, onSave, onCancel }: any) {
+  // Use only items from the order for editing
   const [items, setItems] = useState(() => {
-    const map: Record<number, number> = {}
-    (order.items || []).forEach((it: any) => { map[it.product_id] = it.qty })
-    return map
+    // represent as array of { product_id, qty, product }
+    return (order.items || []).map((it: any) => ({ product_id: it.product_id, qty: it.qty, product: it.product }))
   })
-  const [products, setProducts] = useState<any[]>([])
-  useEffect(() => { (async () => { const r = await api.get('/products'); setProducts(r.data) })() }, [])
 
-  const setQty = (pid: number, qty: number) => setItems((p) => ({ ...p, [pid]: qty }))
+  const setQtyAt = (index: number, qty: number) => {
+    setItems((prev: any[]) => prev.map((it, i) => i === index ? { ...it, qty } : it))
+  }
+
+  const duplicateAt = (index: number) => {
+    setItems((prev: any[]) => {
+      const it = prev[index]
+      // duplicate by adding same qty to the current one (quick duplicate)
+      const newQty = (it.qty || 0) + (it.qty || 0)
+      return prev.map((it2, i) => i === index ? { ...it2, qty: newQty } : it2)
+    })
+  }
 
   const submit = () => {
-    const chosen = Object.entries(items).map(([pid, qty]) => ({ product_id: Number(pid), qty: Number(qty) })).filter((it) => it.qty > 0)
+    const chosen = items.map((it: any) => ({ product_id: Number(it.product_id), qty: Number(it.qty) })).filter((it: any) => it.qty > 0)
     onSave({ id: order.id, church_id: order.church_id, items: chosen })
   }
 
   return (
     <div>
       <div className="grid gap-2 max-h-64 overflow-auto">
-        {products.map((p) => (
-          <div key={p.id} className="flex justify-between items-center">
-            <div>{p.name} <span className="text-xs text-gray-500">(est: {p.stock_qty})</span></div>
-            <input type="number" min={0} max={p.stock_qty} value={items[p.id] || 0} onChange={(e) => setQty(p.id, Math.max(0, Math.min(parseInt(e.target.value||'0'), p.stock_qty)))} className="w-20 border rounded px-2 py-1" />
+        {items.map((p: any, idx: number) => (
+          <div key={`${p.product_id}-${idx}`} className="flex justify-between items-center gap-4 py-1">
+            <div className="flex-1">
+              <div className="font-medium">{p.product?.name || `Produto #${p.product_id}`}</div>
+              <div className="text-xs text-gray-500">Estoque: {p.product?.stock_qty ?? '-'}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="number" min={0} max={p.product?.stock_qty ?? 999999} value={p.qty} onChange={(e) => setQtyAt(idx, Math.max(0, Math.min(parseInt(e.target.value||'0'), p.product?.stock_qty ?? 999999)))} className="w-20 border rounded px-2 py-1" />
+              <button className="px-2 py-1 bg-gray-100 rounded text-xs" onClick={() => duplicateAt(idx)}>Duplicar</button>
+            </div>
           </div>
         ))}
       </div>
