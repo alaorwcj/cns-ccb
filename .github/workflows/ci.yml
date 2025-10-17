@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:24.0.5-dind
+        privileged: true
+        options: >-
+          --privileged
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Compose
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and start infra
+        run: |
+          cd infra
+          docker compose up -d --build
+
+      - name: Wait for API
+        run: |
+          # wait for the api to be ready
+          for i in {1..30}; do
+            docker compose exec -T api curl -f http://localhost:8000/ || true
+            sleep 1
+          done
+
+      - name: Run tests in api container
+        run: |
+          docker compose exec -T api pytest -q /app/tests || (docker compose logs api && exit 1)
