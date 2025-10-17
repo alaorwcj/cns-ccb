@@ -21,3 +21,16 @@ def create_church(db: Session, name: str, city: str) -> Church:
     db.commit()
     db.refresh(ch)
     return ch
+
+
+def update_church(db: Session, church: Church, name: str, city: str) -> Church:
+    church.name = name
+    church.city = city
+    db.commit()
+    db.refresh(church)
+    return church
+
+
+def delete_church(db: Session, church: Church) -> None:
+    db.delete(church)
+    db.commit()

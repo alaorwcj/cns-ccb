@@ -18,6 +18,15 @@ class UserCreate(UserBase):
     church_ids: List[int] = []
 
 
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    role: Optional[UserRole] = None
+    password: Optional[str] = None
+    church_ids: Optional[List[int]] = None
+
+
 class UserRead(UserBase):
     id: int
 

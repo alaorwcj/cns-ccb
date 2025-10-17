@@ -41,3 +41,44 @@ def create_user(
     db.commit()
     db.refresh(user)
     return user
+
+
+def update_user(
+    db: Session,
+    *,
+    user: User,
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    role: Optional[UserRole] = None,
+    password: Optional[str] = None,
+    church_ids: Optional[List[int]] = None,
+) -> User:
+    if name is not None:
+        user.name = name
+    if email is not None:
+        user.email = email
+    if phone is not None:
+        user.phone = phone
+    if role is not None:
+        user.role = role
+    if password is not None:
+        user.password_hash = get_password_hash(password)
+    if church_ids is not None:
+        churches = list(db.scalars(select(Church).where(Church.id.in_(church_ids))))
+        user.churches = churches
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def delete_user(db: Session, user: User) -> None:
+    db.delete(user)
+    db.commit()
+
+
+def toggle_active(db: Session, user: User) -> User:
+    user.is_active = not user.is_active
+    db.commit()
+    db.refresh(user)
+    return user
