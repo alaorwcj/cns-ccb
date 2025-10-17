@@ -57,6 +57,36 @@ def create_order(
     return order
 
 
+def update_order(db: Session, *, order: Order, data) -> Order:
+    # data is an object with optional church_id and items
+    if data.church_id is not None:
+        order.church_id = data.church_id
+
+    if data.items is not None:
+        items = [(it.product_id, it.qty) for it in data.items]
+        if not items:
+            raise ValueError("Order must have items")
+        prods = {p.id: p for p in db.scalars(select(Product).where(Product.id.in_([pid for pid, _ in items])))}
+        order_items: List[OrderItem] = []
+        for product_id, qty in items:
+            prod = prods.get(product_id)
+            if not prod or not prod.is_active:
+                raise ValueError("Invalid product")
+            if prod.stock_qty is None or prod.stock_qty < qty or qty <= 0:
+                raise ValueError("Insufficient stock for one or more items")
+            unit_price: Decimal = prod.price
+            subtotal: Decimal = (unit_price or Decimal("0")) * Decimal(qty)
+            order_items.append(
+                OrderItem(product_id=product_id, qty=qty, unit_price=unit_price, subtotal=subtotal)
+            )
+        # replace items
+        order.items = order_items
+
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 def approve_order(db: Session, *, order: Order) -> Order:
     if order.status != OrderStatus.PENDENTE:
         raise ValueError("Order is not pending")

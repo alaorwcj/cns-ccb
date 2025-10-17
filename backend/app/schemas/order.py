@@ -17,6 +17,11 @@ class OrderCreate(BaseModel):
     items: List[OrderItemCreate]
 
 
+class OrderUpdate(BaseModel):
+    church_id: Optional[int] = None
+    items: Optional[List[OrderItemCreate]] = None
+
+
 class OrderItemRead(BaseModel):
     id: int
     product_id: int

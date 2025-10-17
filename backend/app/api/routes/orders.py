@@ -8,8 +8,9 @@ from app.api.deps import db_dep, require_role
 from app.core.security import get_current_user_token
 from app.models.order import Order, OrderStatus
 from app.models.user import UserRole
-from app.schemas.order import OrderCreate, OrderRead
+from app.schemas.order import OrderCreate, OrderRead, OrderUpdate
 from app.services.orders import list_orders_for_user, create_order, approve_order, deliver_order
+from app.services.orders import update_order
 from app.services.receipt import generate_order_receipt_pdf
 
 router = APIRouter(prefix="/orders", tags=["orders"]) 
@@ -68,5 +69,22 @@ def deliver(order_id: int, db: Session = Depends(db_dep), _adm=Depends(require_r
         raise HTTPException(status_code=404, detail="Order not found")
     try:
         return deliver_order(db, order=order)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/{order_id}", response_model=OrderRead)
+def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
+    # only requester can update while PENDENTE
+    user_id = int(payload.get("user_id"))
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.requester_id != user_id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    if order.status != OrderStatus.PENDENTE:
+        raise HTTPException(status_code=400, detail="Only pending orders can be updated")
+    try:
+        return update_order(db, order, data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

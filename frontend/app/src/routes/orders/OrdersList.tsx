@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../services/api'
 import { useAuth } from '../../store/auth'
+import Modal from '../../components/Modal'
 
 type StatusBadgeProps = { status: string }
 function StatusBadge({ status }: StatusBadgeProps) {
@@ -38,20 +39,41 @@ export default function OrdersList() {
   useEffect(() => { load() }, [])
 
   const approve = async (id: number) => {
-    try {
-      await api.put(`/orders/${id}/approve`)
-      await load()
-    } catch (e: any) {
-      alert(e?.response?.data?.detail || 'Falha ao aprovar')
-    }
+    // show confirm modal
+    setConfirm({ id, action: 'approve' })
   }
 
   const deliver = async (id: number) => {
+    setConfirm({ id, action: 'deliver' })
+  }
+
+  const [viewOrder, setViewOrder] = useState<any | null>(null)
+  const [confirm, setConfirm] = useState<{ id: number; action: 'approve' | 'deliver' } | null>(null)
+  const [editOrder, setEditOrder] = useState<any | null>(null)
+
+  const doConfirm = async () => {
+    if (!confirm) return
     try {
-      await api.put(`/orders/${id}/deliver`)
+      if (confirm.action === 'approve') await api.put(`/orders/${confirm.id}/approve`)
+      if (confirm.action === 'deliver') await api.put(`/orders/${confirm.id}/deliver`)
+      setConfirm(null)
       await load()
     } catch (e: any) {
-      alert(e?.response?.data?.detail || 'Falha ao entregar')
+      alert(e?.response?.data?.detail || 'Falha na operação')
+    }
+  }
+
+  const startEdit = (o: any) => {
+    setEditOrder(o)
+  }
+
+  const saveEdit = async (payload: any) => {
+    try {
+      await api.put(`/orders/${payload.id}`, payload)
+      setEditOrder(null)
+      await load()
+    } catch (e: any) {
+      alert(e?.response?.data?.detail || 'Falha ao atualizar pedido')
     }
   }
 
@@ -102,6 +124,10 @@ export default function OrdersList() {
                 </td>
                 <td className="p-3">
                   <div className="flex gap-2">
+                    <button className="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-xs" onClick={() => setViewOrder(o)}>Ver</button>
+                    {o.status === 'PENDENTE' && o.requester_id === Number(localStorage.getItem('user_id')) && (
+                      <button className="px-2 py-1 rounded bg-white border text-xs" onClick={() => startEdit(o)}>Editar</button>
+                    )}
                     {role === 'ADM' && o.status === 'PENDENTE' && (
                       <button className="px-3 py-1 rounded bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-medium" onClick={() => approve(o.id)}>Aprovar</button>
                     )}
@@ -117,6 +143,75 @@ export default function OrdersList() {
             ))}
           </tbody>
         </table>
+      </div>
+      {viewOrder && (
+        <Modal title={`Pedido #${viewOrder.id}`} onClose={() => setViewOrder(null)}>
+          <div>
+            <div className="mb-2"><strong>Igreja:</strong> {viewOrder.church?.name}</div>
+            <div className="mb-2"><strong>Status:</strong> {viewOrder.status}</div>
+            <div className="mb-2">
+              <strong>Itens:</strong>
+              <ul className="list-disc ml-6">
+                {viewOrder.items?.map((it: any) => (
+                  <li key={it.id}>{it.product?.name || it.product_id} × {it.qty} — R$ {it.unit_price}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button className="px-3 py-1 border rounded" onClick={() => setViewOrder(null)}>Fechar</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {confirm && (
+        <Modal title={`Confirmação`} onClose={() => setConfirm(null)}>
+          <div>
+            <p>Confirma a ação <strong>{confirm.action}</strong> para pedido #{confirm.id}?</p>
+            <div className="mt-4 flex gap-2 justify-end">
+              <button className="px-3 py-1 border rounded" onClick={() => setConfirm(null)}>Cancelar</button>
+              <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={doConfirm}>Confirmar</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {editOrder && (
+        <Modal title={`Editar Pedido #${editOrder.id}`} onClose={() => setEditOrder(null)}>
+          <EditOrderForm order={editOrder} onSave={saveEdit} onCancel={() => setEditOrder(null)} />
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+function EditOrderForm({ order, onSave, onCancel }: any) {
+  const [items, setItems] = useState(() => {
+    const map: Record<number, number> = {}
+    (order.items || []).forEach((it: any) => { map[it.product_id] = it.qty })
+    return map
+  })
+  const [products, setProducts] = useState<any[]>([])
+  useEffect(() => { (async () => { const r = await api.get('/products'); setProducts(r.data) })() }, [])
+
+  const setQty = (pid: number, qty: number) => setItems((p) => ({ ...p, [pid]: qty }))
+
+  const submit = () => {
+    const chosen = Object.entries(items).map(([pid, qty]) => ({ product_id: Number(pid), qty: Number(qty) })).filter((it) => it.qty > 0)
+    onSave({ id: order.id, church_id: order.church_id, items: chosen })
+  }
+
+  return (
+    <div>
+      <div className="grid gap-2 max-h-64 overflow-auto">
+        {products.map((p) => (
+          <div key={p.id} className="flex justify-between items-center">
+            <div>{p.name} <span className="text-xs text-gray-500">(est: {p.stock_qty})</span></div>
+            <input type="number" min={0} max={p.stock_qty} value={items[p.id] || 0} onChange={(e) => setQty(p.id, Math.max(0, Math.min(parseInt(e.target.value||'0'), p.stock_qty)))} className="w-20 border rounded px-2 py-1" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex gap-2 justify-end">
+        <button className="px-3 py-1 border rounded" onClick={onCancel}>Cancelar</button>
+        <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={submit}>Salvar</button>
       </div>
     </div>
   )
