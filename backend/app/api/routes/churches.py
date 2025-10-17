@@ -1,0 +1,24 @@
+from typing import List
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
+
+from app.api.deps import db_dep, require_role
+from app.schemas.church import ChurchCreate, ChurchRead
+from app.services.churches import list_churches, list_cities, create_church
+
+router = APIRouter(prefix="/churches", tags=["churches"]) 
+
+
+@router.get("", response_model=List[ChurchRead])
+def get_churches(db: Session = Depends(db_dep)):
+    return list_churches(db)
+
+
+@router.get("/cities", response_model=List[str])
+def get_cities(db: Session = Depends(db_dep)):
+    return list_cities(db)
+
+
+@router.post("", response_model=ChurchRead, status_code=status.HTTP_201_CREATED)
+def post_church(data: ChurchCreate, db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
+    return create_church(db, data.name, data.city)
