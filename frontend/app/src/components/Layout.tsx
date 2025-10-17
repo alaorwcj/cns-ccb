@@ -28,7 +28,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <NavLink to="/stock">🚚 Movimentações</NavLink>
             <NavLink to="/products">📦 Produtos</NavLink>
             <NavLink to="/users">👤 Usuários</NavLink>
-            <NavLink to="/churches">⛪ Igrejas</NavLink>
+            <NavLink to="/churches"><img src="/casa.png" alt="Igreja" className="h-4 w-4"/> Igrejas</NavLink>
           </nav>
           <div className="p-3 border-t text-xs text-gray-600">
             <div className="flex items-center justify-between">
