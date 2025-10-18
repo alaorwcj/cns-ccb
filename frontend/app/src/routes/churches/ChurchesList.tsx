@@ -102,13 +102,13 @@ export default function ChurchesList() {
             <div className="block sm:hidden p-3">
               {filteredData.map((c: any) => (
                 <div key={c.id} className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow p-3 mb-3">
-                  <div className="font-medium truncate">{c.name}</div>
-                  <div className="text-sm text-gray-500 truncate">{c.city}</div>
+                  <div className="font-medium truncate max-w-full">{c.name}</div>
+                  <div className="text-sm text-gray-500 truncate max-w-full">{c.city}</div>
                 </div>
               ))}
             </div>
             <div className="hidden sm:block">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto min-w-0">
                 <table className="w-full text-sm min-w-full">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr className="text-left">
@@ -129,8 +129,8 @@ export default function ChurchesList() {
                     {filteredData.map((c: any) => (
                       <tr key={c.id} className="hover:bg-gray-50">
                         <td className="p-3 font-mono text-xs">{c.id}</td>
-                        <td className="p-3 font-medium min-w-0"><div className="truncate">{c.name}</div></td>
-                        <td className="p-3 text-gray-600 min-w-0"><div className="truncate">{c.city}</div></td>
+                        <td className="p-3 font-medium min-w-0"><div className="truncate max-w-full">{c.name}</div></td>
+                        <td className="p-3 text-gray-600 min-w-0"><div className="truncate max-w-full">{c.city}</div></td>
                         <td className="p-3">
                           <div className="flex gap-2">
                             <button

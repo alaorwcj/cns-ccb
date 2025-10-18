@@ -157,7 +157,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, [open])
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+  <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 z-50 bg-white dark:bg-gray-800 p-2 rounded border">Pular para o conteúdo</a>
       <div className="flex">
         {/* mobile top bar */}
@@ -259,7 +259,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           />
         )}
 
-        <main id="main-content" role="main" tabIndex={-1} className={`flex-1 p-4 md:p-6 ${collapsed ? 'md:ml-20' : 'md:ml-64'} min-w-0`}>
+        <main id="main-content" role="main" tabIndex={-1} className={`flex-1 p-4 md:p-6 ${collapsed ? 'md:ml-20' : 'md:ml-64'} min-w-0 min-h-0`}>
           <div className="max-w-screen-xl mx-auto w-full px-4 sm:px-6 lg:px-8">
             {children}
           </div>

@@ -81,16 +81,16 @@ export default function ProductsList() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {products.length === 0 ? (
+                    {products.length === 0 ? (
                     <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-500">Nenhum produto encontrado</td></tr>
                   ) : (
                     products.map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm min-w-0">
-                          <div className="truncate">{p.name}</div>
+                          <div className="truncate max-w-full">{p.name}</div>
                         </td>
                         <td className="px-4 py-3 text-sm min-w-0">
-                          <div className="truncate">{p.category_name || '-'}</div>
+                          <div className="truncate max-w-full">{p.category_name || '-'}</div>
                         </td>
                         <td className="px-4 py-3 text-sm">R$ {p.price?.toFixed?.(2) ?? p.price}</td>
                         <td className="px-4 py-3 text-sm text-right">

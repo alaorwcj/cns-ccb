@@ -47,7 +47,7 @@ export default function Movements(): JSX.Element {
   if (loading) return <div>Carregando...</div>
 
   return (
-    <div>
+    <div className="min-w-0">
       {showForm && <StockMovementForm onClose={() => setShowForm(false)} onSave={() => { setShowForm(false) }} />}
 
       <div className="mb-4 flex justify-between items-center">
@@ -69,12 +69,14 @@ export default function Movements(): JSX.Element {
       <div className="space-y-3">
         {filtered.length === 0 && <div className="text-gray-500">Nenhuma movimentação</div>}
         {filtered.map((m: any) => (
-          <div key={m.id} className="p-3 border rounded">
-            <div className="flex justify-between">
-              <div className="font-medium">{m.product?.name || `Produto #${m.product_id}`}</div>
-              <div className="font-mono">{m.qty}</div>
+          <div key={m.id} className="p-3 border rounded min-w-0">
+            <div className="flex justify-between items-start">
+              <div className="min-w-0">
+                <div className="font-medium truncate">{m.product?.name || `Produto #${m.product_id}`}</div>
+              </div>
+              <div className="font-mono ml-2">{m.qty}</div>
             </div>
-            <div className="text-xs text-gray-500">{m.created_at ? new Date(m.created_at).toLocaleString('pt-BR') : ''}</div>
+            <div className="text-xs text-gray-500 truncate">{m.created_at ? new Date(m.created_at).toLocaleString('pt-BR') : ''}</div>
             <div className="mt-1 text-xs"><MovementTypeBadge type={m.type} /></div>
           </div>
         ))}
