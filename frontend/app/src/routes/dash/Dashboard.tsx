@@ -84,16 +84,16 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="col-span-1 sm:col-span-1 bg-sky-600 text-white p-4 sm:p-5 rounded shadow min-w-0 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-stretch">
+          <div className="col-span-1 sm:col-span-1 bg-sky-600 text-white p-4 sm:p-5 rounded shadow min-w-0 w-full overflow-hidden min-h-[88px]">
           <div className="text-sm opacity-90">Pedidos em aberto</div>
           <div className="text-2xl md:text-3xl font-extrabold mt-3 leading-tight truncate">{integer.format(data.pedidos_abertos)}</div>
         </div>
-          <div className="col-span-1 sm:col-span-1 bg-emerald-600 text-white p-4 sm:p-5 rounded shadow min-w-0 w-full">
+          <div className="col-span-1 sm:col-span-1 bg-emerald-600 text-white p-4 sm:p-5 rounded shadow min-w-0 w-full overflow-hidden min-h-[88px]">
           <div className="text-sm opacity-90">Média saída mensal</div>
           <div className="text-2xl md:text-3xl font-extrabold mt-3 leading-tight truncate">{currency.format(Number(data.medias_saida_mensal || 0))}</div>
         </div>
-          <div className="col-span-1 sm:col-span-1 bg-amber-600 text-white p-4 sm:p-5 rounded shadow min-w-0 w-full">
+          <div className="col-span-1 sm:col-span-1 bg-amber-600 text-white p-4 sm:p-5 rounded shadow min-w-0 w-full overflow-hidden min-h-[88px]">
           <div className="text-sm opacity-90">Total em estoque</div>
           <div className="text-2xl md:text-3xl font-extrabold mt-3 leading-tight truncate">{currency.format(Number(data.total_estoque_em_rs || 0))}</div>
         </div>
