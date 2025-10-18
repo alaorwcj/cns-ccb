@@ -85,8 +85,6 @@ main, #main-content {
 			z-index: 30 !important;
 			/* keep aside visible but below main so it doesn't clip the viewport */
 		}
-		/* Remove any debug overlay if present */
-		.dbg-box, #dbg-overlay { display: none !important; }
 	}
 
 	/* Emergency overrides: make sure root/main use the full viewport width and are not transformed or clipped */
