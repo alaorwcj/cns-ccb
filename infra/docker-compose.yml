@@ -1,3 +1,4 @@
+version: '3.8'
 services:
   db:
     image: postgres:16
@@ -26,7 +27,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8000:8000"  # Porta externa:interna (host:container)
+      - "8000:8000"
     volumes:
       - ../backend:/app
     restart: unless-stopped
@@ -34,14 +35,11 @@ services:
   web:
     build: ../frontend/app
     ports:
-      - "5173:5173"  # Porta externa:interna (host:container)
+      - "5173:5173"
     command: npm run dev -- --host
     environment:
-      VITE_API_BASE_URL: http://162.220.11.4:8000  # Atualizado para nova porta da API
-    volumes:
-      - ../frontend/app:/app
-      - /app/node_modules
-      - ../casa.png:/app/public/casa.png:ro
+      VITE_API_BASE_URL: http://162.220.11.4:8000
+    # No bind mount here: use the built image's files and node_modules
     restart: unless-stopped
 
   api-test:
