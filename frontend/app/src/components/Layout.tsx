@@ -87,6 +87,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     try { return localStorage.getItem('sidebar_collapsed') === '1' } catch { return false }
   })
   const [mounted, setMounted] = useState(false)
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+    } catch { return true }
+  })
   const touchStartX = useRef<number | null>(null)
   const [dragX, setDragX] = useState<number>(0)
   const dragging = useRef(false)
@@ -156,6 +161,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
+  // track viewport breakpoint so we can avoid rendering the offscreen sidebar
+  useEffect(() => {
+    let mq: MediaQueryList | null = null
+    try {
+      mq = window.matchMedia('(min-width: 768px)')
+      const handler = (ev: MediaQueryListEvent) => setIsDesktop(ev.matches)
+      // some browsers use addEventListener, some use addListener
+      if (mq.addEventListener) mq.addEventListener('change', handler)
+      else mq.addListener(handler)
+      setIsDesktop(mq.matches)
+      return () => {
+        if (!mq) return
+        if (mq.removeEventListener) mq.removeEventListener('change', handler)
+        else mq.removeListener(handler)
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
   return (
   <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 z-50 bg-white dark:bg-gray-800 p-2 rounded border">Pular para o conteúdo</a>
@@ -172,6 +197,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* sidebar */}
+        {(isDesktop || open) && (
         <aside
           ref={sidebarRef}
           onTouchStart={onTouchStart}
@@ -180,7 +206,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           role="navigation"
           aria-label="Main navigation"
           id="sidebar"
-          aria-hidden={!open && 'true'}
+          aria-hidden={!isDesktop && !open}
           className={`fixed inset-y-0 z-30 ${open ? 'left-0' : '-left-full'} md:left-0 md:static md:relative ${collapsed ? 'w-20' : 'w-64'} ${mounted ? 'transition-all duration-300 ease-in-out' : 'transition-none'} bg-white border-r flex flex-col min-w-0 ${themeDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}
         >
           <div className={`p-4 border-b flex items-center gap-3 ${themeDark ? 'border-gray-700' : 'border-gray-100'}`}>
@@ -245,8 +271,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
           </div>
-        </aside>
-        {/* overlay */}
+  </aside>
+  )}
+  {/* overlay */}
         {open && (
           <div
             onClick={() => setOpen(false)}
@@ -258,8 +285,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           />
         )}
 
-        <main id="main-content" role="main" tabIndex={-1} className={`flex-1 p-4 md:p-6 ${collapsed ? 'md:ml-20' : 'md:ml-64'} min-w-0 min-h-0`}>
-          <div className="max-w-screen-xl mx-auto w-full px-4 sm:px-6 lg:px-8">
+        <main id="main-content" role="main" tabIndex={-1} className={`flex-1 md:p-6 ${collapsed ? 'md:ml-20' : 'md:ml-64'} min-w-0 min-h-0`}>
+          <div className="max-w-screen-xl mx-auto w-full p-4 md:px-6 lg:px-8">
             {children}
           </div>
         </main>

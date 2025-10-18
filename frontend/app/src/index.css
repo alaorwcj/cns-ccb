@@ -77,13 +77,18 @@ main, #main-content {
 			width: 100vw !important;
 			max-width: 100vw !important;
 			margin: 0 !important;
-			padding-left: 0 !important;
-			padding-right: 0 !important;
+			padding: 0 !important; /* remove all padding on main in mobile */
 			overflow-x: visible !important;
 		}
 		aside#sidebar {
 			z-index: 30 !important;
 			/* keep aside visible but below main so it doesn't clip the viewport */
+		}
+		/* Ensure the inner container uses full width without padding */
+		.max-w-screen-xl {
+			padding-left: 0 !important;
+			padding-right: 0 !important;
+			max-width: 100% !important;
 		}
 	}
 
@@ -101,11 +106,5 @@ main, #main-content {
 		width: 100% !important;
 		max-width: 100% !important;
 		overflow-x: visible !important;
-	}
-
-	/* Lower the sidebar z-index on small screens to ensure main content isn't clipped by overlaying elements */
-	@media (max-width: 640px) {
-		aside#sidebar { z-index: 10 !important; }
-		main { z-index: 20 !important; }
 	}
 
