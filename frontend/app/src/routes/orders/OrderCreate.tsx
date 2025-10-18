@@ -16,7 +16,7 @@ export default function OrderCreate() {
       try {
         const [cats, prods, chs] = await Promise.all([
           api.get('/categories'),
-          api.get('/products'),
+          api.get('/products?limit=100'),
           api.get('/churches'),
         ])
         setCategories(cats.data)
