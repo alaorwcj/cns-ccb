@@ -9,6 +9,8 @@ export default function ProductsList() {
   const [filterCat, setFilterCat] = useState<number | 'all'>('all')
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
@@ -18,12 +20,18 @@ export default function ProductsList() {
     setLoading(true)
     setError(null)
     try {
+      const params: any = { page, limit: 10 }
+      if (filterCat !== 'all') params.category_id = filterCat
+      if (search) params.search = search
+      if (filterActive !== 'all') params.is_active = filterActive === 'active'
+
       const [cats, prods] = await Promise.all([
         api.get('/categories'),
-        api.get('/products', { params: filterCat === 'all' ? {} : { category_id: filterCat } })
+        api.get('/products', { params })
       ])
       setCategories(cats.data || [])
-      setProducts(prods.data || [])
+      setProducts(prods.data.data || [])
+      setTotal(prods.data.total || 0)
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || 'Erro ao carregar produtos')
     } finally {
@@ -31,12 +39,7 @@ export default function ProductsList() {
     }
   }
 
-  const filteredProducts = products.filter((p: any) => {
-    const matchesCat = filterCat === 'all' || p.category_id === filterCat
-    const matchesSearch = !search || p.name.toLowerCase().includes(search.toLowerCase())
-    const matchesActive = filterActive === 'all' || (filterActive === 'active' ? p.is_active : !p.is_active)
-    return matchesCat && matchesSearch && matchesActive
-  })
+  const filteredProducts = products
 
   const openEdit = (p: any) => { setEditing(p); setShowForm(true) }
   const openNew = () => { setEditing(null); setShowForm(true) }
@@ -69,6 +72,10 @@ export default function ProductsList() {
       alert(e?.response?.data?.detail || 'Falha ao alterar status')
     }
   }
+
+  useEffect(() => {
+    load()
+  }, [page, filterCat, search, filterActive])
 
   return (
     <div>
@@ -166,6 +173,29 @@ export default function ProductsList() {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-sm text-gray-700">
+          Mostrando {products.length} de {total} produtos
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage(Math.max(1, page - 1))}
+            disabled={page === 1}
+            className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
+            Anterior
+          </button>
+          <span className="text-sm">Página {page}</span>
+          <button
+            onClick={() => setPage(page + 1)}
+            disabled={products.length < 10}
+            className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
+            Próxima
+          </button>
         </div>
       </div>
 

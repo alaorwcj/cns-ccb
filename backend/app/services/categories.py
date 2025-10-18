@@ -32,6 +32,9 @@ def delete_category(db: Session, category_id: int) -> bool:
     cat = db.get(Category, category_id)
     if not cat:
         return False
+    # Check if category has products
+    if cat.products:
+        raise ValueError("Cannot delete category with associated products")
     db.delete(cat)
     db.commit()
     return True

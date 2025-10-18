@@ -3,8 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import db_dep, require_role
-from app.schemas.product import ProductCreate, ProductRead, ProductUpdate
+from app.schemas.product import ProductCreate, ProductRead, ProductUpdate, ProductListResponse
 from app.services.products import (
+    count_products,
     list_products,
     create_product,
     get_product,
@@ -16,13 +17,17 @@ from app.services.products import (
 router = APIRouter(prefix="/products", tags=["products"]) 
 
 
-@router.get("", response_model=List[ProductRead])
+@router.get("", response_model=ProductListResponse)
 def get_products(
     db: Session = Depends(db_dep),
     category_id: Optional[int] = None,
     q: Optional[str] = Query(default=None, alias="search"),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=50, ge=1, le=100),
 ):
-    return list_products(db, category_id=category_id, q=q)
+    data = list_products(db, category_id=category_id, q=q, page=page, limit=limit)
+    total = count_products(db, category_id=category_id, q=q)
+    return ProductListResponse(data=data, total=total, page=page, limit=limit)
 
 
 @router.post("", response_model=ProductRead, status_code=status.HTTP_201_CREATED)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from decimal import Decimal
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -30,6 +30,17 @@ class ProductUpdate(BaseModel):
 
 class ProductRead(ProductBase):
     id: int
+    category_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProductListResponse(BaseModel):
+    data: List[ProductRead]
+    total: int
+    page: int
+    limit: int
 
     class Config:
         from_attributes = True
