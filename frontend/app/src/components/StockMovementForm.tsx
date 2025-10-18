@@ -20,7 +20,7 @@ export default function StockMovementForm({ onClose, onSave }: StockMovementForm
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get('/products?limit=1000') // Get all products for stock movements
+        const r = await api.get('/products?limit=100') // Get all products for stock movements
         setProducts(r.data.data || [])
       } catch (e) {
         console.error('Erro ao carregar produtos', e)
@@ -33,6 +33,14 @@ export default function StockMovementForm({ onClose, onSave }: StockMovementForm
     setLoading(true)
     setError(null)
     try {
+      // Validações
+      if (!formData.product_id || formData.product_id === '') {
+        throw new Error('Selecione um produto')
+      }
+      if (!formData.qty || Number(formData.qty) <= 0) {
+        throw new Error('Quantidade deve ser maior que zero')
+      }
+
       const payload = {
         product_id: Number(formData.product_id),
         type: formData.type,
@@ -44,7 +52,7 @@ export default function StockMovementForm({ onClose, onSave }: StockMovementForm
       onSave()
       onClose()
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Erro ao registrar movimentação')
+      setError(e?.response?.data?.detail || e?.message || 'Erro ao registrar movimentação')
     } finally {
       setLoading(false)
     }
