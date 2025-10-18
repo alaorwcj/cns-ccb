@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Tuple
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.models.order import Order, OrderItem, OrderStatus
 from app.models.product import Product
@@ -12,11 +12,19 @@ from app.services.stock import add_movement
 from app.models.stock_movement import MovementType
 
 
-def list_orders_for_user(db: Session, *, user: User, is_admin: bool) -> List[Order]:
+def list_orders_for_user(db: Session, *, user: User, is_admin: bool, page: int = 1, limit: int = 10) -> List[Order]:
     stmt = select(Order).options(selectinload(Order.church), selectinload(Order.items)).order_by(Order.created_at.desc())
     if not is_admin:
         stmt = stmt.where(Order.requester_id == user.id)
+    stmt = stmt.offset((page - 1) * limit).limit(limit)
     return list(db.scalars(stmt))
+
+
+def count_orders_for_user(db: Session, *, user: User, is_admin: bool) -> int:
+    stmt = select(func.count()).select_from(Order)
+    if not is_admin:
+        stmt = stmt.where(Order.requester_id == user.id)
+    return db.scalar(stmt) or 0
 
 
 def create_order(

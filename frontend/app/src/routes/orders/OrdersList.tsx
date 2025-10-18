@@ -25,13 +25,20 @@ export default function OrdersList() {
   const role = useAuth((s) => s.role)
   const navigate = useNavigate()
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalOrders, setTotalOrders] = useState(0)
+  const pageSize = 10
 
-  const load = async () => {
+  const load = async (page: number = 1) => {
     setLoading(true)
     setError(null)
     try {
-      const r = await api.get('/orders')
-      setOrders(r.data)
+      const r = await api.get(`/orders?page=${page}&limit=${pageSize}`)
+      setOrders(r.data.data || [])
+      setTotalOrders(r.data.total || 0)
+      setTotalPages(Math.ceil((r.data.total || 0) / pageSize))
+      setCurrentPage(page)
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Erro ao carregar pedidos')
     } finally {
@@ -39,7 +46,18 @@ export default function OrdersList() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(1) }, [])
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      load(page)
+    }
+  }
+
+  const handleStatusFilterChange = (status: string) => {
+    setFilterStatus(status)
+    // Note: For now, client-side filtering. Could be moved to server-side if needed
+  }
 
   const approve = async (id: number) => {
     // show confirm modal
@@ -194,6 +212,52 @@ export default function OrdersList() {
           </div>
         </div>
       </div>
+      
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="p-4 border-t dark:border-gray-700 flex items-center justify-between">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Mostrando {orders.length} de {totalOrders} pedidos
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Anterior
+            </button>
+            
+            <div className="flex gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
+                if (pageNum > totalPages) return null
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`px-3 py-1 border rounded text-sm ${
+                      pageNum === currentPage 
+                        ? 'bg-blue-600 text-white border-blue-600' 
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+            </div>
+            
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Próxima
+            </button>
+          </div>
+        </div>
+      )}
       {viewOrder && (
         <Modal title={`Pedido #${viewOrder.id}`} onClose={() => setViewOrder(null)}>
           <div>

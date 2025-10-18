@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,7 @@ from app.api.deps import db_dep, require_role
 from app.core.security import get_current_user_token
 from app.models.order import Order, OrderStatus
 from app.models.user import UserRole
-from app.schemas.order import OrderCreate, OrderRead, OrderUpdate
+from app.schemas.order import OrderCreate, OrderRead, OrderUpdate, OrderListResponse
 from app.services.orders import list_orders_for_user, create_order, approve_order, deliver_order
 from app.services.orders import update_order
 from app.services.receipt import generate_order_receipt_pdf
@@ -17,19 +17,26 @@ from datetime import datetime
 router = APIRouter(prefix="/orders", tags=["orders"]) 
 
 
-@router.get("", response_model=List[OrderRead])
-def get_orders(db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
+@router.get("", response_model=OrderListResponse)
+def get_orders(
+    db: Session = Depends(db_dep), 
+    payload: dict = Depends(get_current_user_token),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=50),
+):
     is_admin = payload.get("role") == UserRole.ADM.value
     user_id = int(payload.get("user_id"))
     from app.models.user import User
+    from app.services.orders import count_orders_for_user
 
     user = db.get(User, user_id)
-    orders = list_orders_for_user(db, user=user, is_admin=is_admin)
+    orders = list_orders_for_user(db, user=user, is_admin=is_admin, page=page, limit=limit)
+    total = count_orders_for_user(db, user=user, is_admin=is_admin)
     # Add church_name and church_city to each order
     for order in orders:
         order.church_name = order.church.name if order.church else None
         order.church_city = order.church.city if order.church else None
-    return orders
+    return OrderListResponse(data=orders, total=total, page=page, limit=limit)
 
 
 @router.post("", response_model=OrderRead, status_code=status.HTTP_201_CREATED)

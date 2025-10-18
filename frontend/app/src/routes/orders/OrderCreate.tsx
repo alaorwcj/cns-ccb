@@ -32,14 +32,14 @@ export default function OrderCreate() {
           api.get('/categories'),
           api.get('/products?limit=100'),
           api.get('/churches'),
-          api.get('/orders'),
+          api.get('/orders?page=1&limit=100'), // Get more orders to find pending ones
         ])
         setCategories(cats.data)
         setProducts(prods.data.data || [])
         setChurches(chs.data)
 
         // Check if user has a pending order
-        const userOrders = ordersRes.data || []
+        const userOrders = ordersRes.data.data || []
         const pendingOrder = userOrders.find((o: any) => o.status === 'PENDENTE' && o.requester_id === userId)
 
         if (pendingOrder) {

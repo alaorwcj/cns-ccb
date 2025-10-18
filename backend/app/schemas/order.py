@@ -54,3 +54,13 @@ class OrderRead(BaseModel):
 class OrderSign(BaseModel):
     # optional note or signer name could be added in future
     pass
+
+
+class OrderListResponse(BaseModel):
+    data: List[OrderRead]
+    total: int
+    page: int
+    limit: int
+
+    class Config:
+        from_attributes = True
