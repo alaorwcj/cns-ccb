@@ -18,6 +18,7 @@ def get_movements(
     type: Optional[MovementType] = None,
     start: Optional[datetime] = Query(default=None),
     end: Optional[datetime] = Query(default=None),
+    _adm=Depends(require_role("ADM")),
 ):
     return list_movements(db, product_id=product_id, type=type, start=start, end=end)
 
