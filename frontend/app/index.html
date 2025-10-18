@@ -8,77 +8,7 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- DEBUG: overlay injector (temporary) -->
-    <script>
-      (function(){
-        try {
-          const createOverlay = () => {
-            const existing = document.getElementById('dbg-overlay')
-            if (existing) existing.remove()
-            const o = document.createElement('div')
-            o.id = 'dbg-overlay'
-            o.style.position = 'fixed'
-            o.style.top = '0'
-            o.style.left = '0'
-            o.style.zIndex = '99999'
-            o.style.background = 'rgba(0,0,0,0.6)'
-            o.style.color = 'white'
-            o.style.fontSize = '12px'
-            o.style.padding = '6px'
-            o.style.maxWidth = '100%'
-            o.style.pointerEvents = 'none'
-            document.body.appendChild(o)
-
-            const update = () => {
-              const main = document.querySelector('main#main-content') || document.querySelector('main')
-              const aside = document.getElementById('sidebar')
-              const rectMain = main ? (main.getBoundingClientRect()) : null
-              const rectAside = aside ? (aside.getBoundingClientRect()) : null
-              const cs = main ? window.getComputedStyle(main) : null
-              const parent = main ? main.parentElement : null
-              const csParent = parent ? window.getComputedStyle(parent) : null
-              const extra = main ? `transform:${cs.transform}; margin-left:${cs.marginLeft}; left:${cs.left}; position:${cs.position}; parent-transform:${csParent ? csParent.transform : 'n/a'}; parent-left:${csParent ? csParent.left : 'n/a'}` : ''
-              o.innerText = `main: ${rectMain ? Math.round(rectMain.width)+'x'+Math.round(rectMain.height)+' @('+Math.round(rectMain.left)+','+Math.round(rectMain.top)+')' : 'n/a'}\n` +
-                         `aside: ${rectAside ? Math.round(rectAside.width)+'x'+Math.round(rectAside.height)+' @('+Math.round(rectAside.left)+','+Math.round(rectAside.top)+')' : 'n/a'}\n` +
-                         `viewport: ${window.innerWidth}x${window.innerHeight}\n` + extra
-              // draw visual boxes
-              document.querySelectorAll('.dbg-box').forEach(n=>n.remove())
-              if (rectMain) {
-                const b = document.createElement('div')
-                b.className = 'dbg-box'
-                b.style.position = 'fixed'
-                b.style.left = rectMain.left+'px'
-                b.style.top = rectMain.top+'px'
-                b.style.width = rectMain.width+'px'
-                b.style.height = rectMain.height+'px'
-                b.style.border = '3px solid rgba(37,99,235,0.7)'
-                b.style.zIndex = '99998'
-                b.style.pointerEvents = 'none'
-                document.body.appendChild(b)
-              }
-              if (rectAside) {
-                const b2 = document.createElement('div')
-                b2.className = 'dbg-box'
-                b2.style.position = 'fixed'
-                b2.style.left = rectAside.left+'px'
-                b2.style.top = rectAside.top+'px'
-                b2.style.width = rectAside.width+'px'
-                b2.style.height = rectAside.height+'px'
-                b2.style.border = '3px solid rgba(220,38,38,0.8)'
-                b2.style.zIndex = '99998'
-                b2.style.pointerEvents = 'none'
-                document.body.appendChild(b2)
-              }
-            }
-            update()
-            window.addEventListener('resize', update)
-            setTimeout(update, 800)
-          }
-          if (document.readyState === 'complete' || document.readyState === 'interactive') createOverlay();
-          else document.addEventListener('DOMContentLoaded', createOverlay)
-        } catch(e) { console.error('dbg inject failed', e) }
-      })()
-    </script>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
