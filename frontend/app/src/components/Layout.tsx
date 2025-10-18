@@ -181,8 +181,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           aria-label="Main navigation"
           id="sidebar"
           aria-hidden={!open && 'true'}
-          className={`fixed inset-y-0 left-0 z-30 transform ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:static md:relative ${collapsed ? 'w-20' : 'w-64'} ${mounted ? 'transition-transform duration-300 ease-in-out' : 'transition-none'} bg-white border-r flex flex-col min-w-0 ${themeDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}
-          style={dragX ? { transform: `translateX(${Math.min(0, dragX)}px)` } : undefined}
+          className={`fixed inset-y-0 z-30 ${open ? 'left-0' : '-left-full'} md:left-0 md:static md:relative ${collapsed ? 'w-20' : 'w-64'} ${mounted ? 'transition-all duration-300 ease-in-out' : 'transition-none'} bg-white border-r flex flex-col min-w-0 ${themeDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}
         >
           <div className={`p-4 border-b flex items-center gap-3 ${themeDark ? 'border-gray-700' : 'border-gray-100'}`}>
             <img src="/ccb.png" alt="CCB" className={`h-10 object-contain ${themeDark ? 'rounded bg-white/10 p-1' : ''}`}/>
