@@ -5,6 +5,13 @@
 :root { color-scheme: light dark; }
 body { @apply bg-gray-50 text-gray-900; }
 
+/* Base anti-overflow (mobile-first) - prevents unintended horizontal scrolls */
+html, body, #root { height: 100%; }
+html, body { overflow-x: hidden; }
+/* Ensure child elements cannot force parents to expand horizontally */
+* { min-width: 0; }
+img, canvas, svg, video { max-width: 100%; height: auto; }
+
 /* Prevent elements from overflowing and ensure images scale */
 * { box-sizing: border-box; }
 img { max-width: 100%; height: auto; display: block; }
