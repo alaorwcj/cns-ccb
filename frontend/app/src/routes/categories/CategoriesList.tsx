@@ -8,6 +8,7 @@ export default function CategoriesList() {
   const [showForm, setShowForm] = useState(false)
   const [editingCategory, setEditingCategory] = useState<any | null>(null)
   const [name, setName] = useState('')
+  const [search, setSearch] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -67,7 +68,10 @@ export default function CategoriesList() {
     }
   }
 
-  if (loading) return <div>Carregando...</div>
+  const filteredCategories = categories.filter((c: any) => {
+    const query = search.toLowerCase()
+    return !query || c.name.toLowerCase().includes(query)
+  })
 
   return (
     <>
@@ -92,14 +96,23 @@ export default function CategoriesList() {
       <div className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow min-w-0">
         <div className="p-4 flex justify-between items-center border-b dark:border-gray-700">
           <div className="font-semibold">Categorias</div>
-          <button onClick={openNew} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium">+ Nova Categoria</button>
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              placeholder="Buscar categoria..."
+              className="border rounded px-2 py-1 text-sm"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <button onClick={openNew} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium">+ Nova Categoria</button>
+          </div>
         </div>
 
         {error && <div className="text-red-600 p-4">{error}</div>}
 
         <div className="p-0">
           <div className="block sm:hidden p-3">
-            {categories.map((c) => (
+            {filteredCategories.map((c) => (
               <div key={c.id} className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow p-3 mb-3 flex justify-between items-center">
                 <div className="font-medium">{c.name}</div>
                 <div className="flex gap-2">
@@ -121,12 +134,12 @@ export default function CategoriesList() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {categories.length === 0 && (
+                  {filteredCategories.length === 0 && (
                     <tr>
                       <td colSpan={3} className="p-8 text-center text-gray-500">Nenhuma categoria encontrada</td>
                     </tr>
                   )}
-                  {categories.map((c) => (
+                  {filteredCategories.map((c) => (
                     <tr key={c.id} className="hover:bg-gray-50">
                       <td className="p-3 font-mono text-xs">{c.id}</td>
                       <td className="p-3 font-medium min-w-0"><div className="truncate max-w-full">{c.name}</div></td>

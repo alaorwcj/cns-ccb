@@ -53,3 +53,14 @@ def duplicate_product_route(product_id: int, db: Session = Depends(db_dep), _adm
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
     return duplicate_product(db, prod)
+
+
+@router.patch("/{product_id}/toggle-active", response_model=ProductRead)
+def toggle_active_product(product_id: int, db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
+    prod = get_product(db, product_id)
+    if not prod:
+        raise HTTPException(status_code=404, detail="Product not found")
+    prod.is_active = not prod.is_active
+    db.commit()
+    db.refresh(prod)
+    return prod

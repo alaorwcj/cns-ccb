@@ -24,6 +24,7 @@ export default function OrdersList() {
   const [error, setError] = useState<string | null>(null)
   const role = useAuth((s) => s.role)
   const navigate = useNavigate()
+  const [filterStatus, setFilterStatus] = useState<string>('all')
 
   const load = async () => {
     setLoading(true)
@@ -96,16 +97,23 @@ export default function OrdersList() {
     navigate(`/orders/${o.id}/edit`)
   }
 
-  if (loading) return <div>Carregando...</div>
-  if (error) return <div className="text-red-600">{error}</div>
+  const filteredOrders = filterStatus === 'all' ? orders : orders.filter((o: any) => o.status === filterStatus)
 
   return (
     <div className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow min-w-0">
-      <div className="p-4 border-b font-semibold dark:border-gray-700">Pedidos</div>
+      <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+        <div className="font-semibold">Pedidos</div>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border rounded px-2 py-1 text-sm">
+          <option value="all">Todos os status</option>
+          <option value="PENDENTE">Pendente</option>
+          <option value="APROVADO">Aprovado</option>
+          <option value="ENTREGUE">Entregue</option>
+        </select>
+      </div>
       {error && <div className="p-4 text-red-600">{error}</div>}
       <div className="p-0">
         <div className="block sm:hidden p-3">
-          {orders.map((o) => (
+          {filteredOrders.map((o) => (
             <div key={o.id} className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow p-3 mb-3">
               <div className="flex justify-between items-center">
                 <div className="font-medium">Pedido #{o.id}</div>
@@ -136,7 +144,7 @@ export default function OrdersList() {
                 <td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">Nenhum pedido encontrado</td>
               </tr>
             )}
-            {orders.map((o: any) => (
+            {filteredOrders.map((o: any) => (
               <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="p-3 font-mono text-xs">{o.id}</td>
                 <td className="p-3 font-medium min-w-0"><div className="truncate">{o.church_name || `Igreja #${o.church_id}`}</div></td>

@@ -10,6 +10,7 @@ export default function ChurchesList() {
   const [editingChurch, setEditingChurch] = useState<any | null>(null)
   const [filterCity, setFilterCity] = useState<string>('all')
   const [cities, setCities] = useState<string[]>([])
+  const [search, setSearch] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -59,6 +60,11 @@ export default function ChurchesList() {
     ? data
     : data.filter((c: any) => c.city === filterCity)
 
+  const finalFiltered = filteredData.filter((c: any) => {
+    const query = search.toLowerCase()
+    return !query || c.name.toLowerCase().includes(query) || c.city.toLowerCase().includes(query)
+  })
+
   if (loading) return <div>Carregando...</div>
 
   return (
@@ -79,6 +85,13 @@ export default function ChurchesList() {
           <div className="p-4 flex justify-between items-center border-b dark:border-gray-700">
             <div className="font-semibold">Igrejas</div>
             <div className="flex gap-3 items-center">
+              <input
+                type="text"
+                placeholder="Buscar nome ou cidade..."
+                className="border rounded px-2 py-1 text-sm"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
               <select
                 className="border rounded px-2 py-1 text-sm"
                 value={filterCity}
@@ -100,7 +113,7 @@ export default function ChurchesList() {
           {error && <div className="text-red-600 p-4">{error}</div>}
           <div className="p-0">
             <div className="block sm:hidden p-3">
-              {filteredData.map((c: any) => (
+              {finalFiltered.map((c: any) => (
                 <div key={c.id} className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow p-3 mb-3">
                   <div className="font-medium truncate max-w-full">{c.name}</div>
                   <div className="text-sm text-gray-500 truncate max-w-full">{c.city}</div>
@@ -119,14 +132,14 @@ export default function ChurchesList() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {filteredData.length === 0 && (
+                    {finalFiltered.length === 0 && (
                       <tr>
                         <td colSpan={4} className="p-8 text-center text-gray-500">
-                          {filterCity === 'all' ? 'Nenhuma igreja cadastrada' : `Nenhuma igreja encontrada em ${filterCity}`}
+                          Nenhuma igreja encontrada
                         </td>
                       </tr>
                     )}
-                    {filteredData.map((c: any) => (
+                    {finalFiltered.map((c: any) => (
                       <tr key={c.id} className="hover:bg-gray-50">
                         <td className="p-3 font-mono text-xs">{c.id}</td>
                         <td className="p-3 font-medium min-w-0"><div className="truncate max-w-full">{c.name}</div></td>
