@@ -58,6 +58,14 @@ main, #main-content {
 	}
 }
 
+	/* DEBUG helpers - temporary: outlines to visualize layout boxes on small screens */
+	@media (max-width: 640px) {
+		aside#sidebar { outline: 3px solid rgba(220, 38, 38, 0.9) !important; }
+		main#main-content, main { outline: 3px solid rgba(37, 99, 235, 0.9) !important; }
+		/* subtle background to help see bounds */
+		main { background-color: rgba(255,255,0,0.02) !important; }
+	}
+
 	/* Emergency overrides: make sure root/main use the full viewport width and are not transformed or clipped */
 	html, body, #root {
 		width: 100vw !important;
