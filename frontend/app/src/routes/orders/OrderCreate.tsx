@@ -20,7 +20,7 @@ export default function OrderCreate() {
           api.get('/churches'),
         ])
         setCategories(cats.data)
-        setProducts(prods.data)
+        setProducts(prods.data.data || [])
         setChurches(chs.data)
       } catch (e: any) {
         setError(e?.response?.data?.detail || 'Erro ao carregar dados')
