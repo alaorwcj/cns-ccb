@@ -8,7 +8,7 @@ import Movements from './routes/stock/Movements'
 import ProductsList from './routes/products/ProductsList'
 import UsersList from './routes/users/UsersList'
 import ChurchesList from './routes/churches/ChurchesList'
-import Layout from './components/Layout'
+import Layout from './components/AppLayout'
 import ResetConfirm from './routes/auth/ResetConfirm'
 import ResetInit from './routes/auth/ResetInit'
 
@@ -24,16 +24,16 @@ function Nav() {
   const { access, role, clear } = useAuth()
   return (
     <div className="w-full bg-white border-b mb-4">
-      <div className="max-w-6xl mx-auto p-3 flex gap-4 items-center justify-between">
-        <div className="flex gap-3">
-          <Link to="/" className="font-semibold">CCB CNS</Link>
+      <div className="max-w-6xl mx-auto p-3 flex gap-4 items-center justify-between min-w-0">
+        <div className="flex gap-3 min-w-0">
+          <Link to="/" className="font-semibold truncate">CCB CNS</Link>
           {access && <>
-            <Link to="/orders">Pedidos</Link>
-            <Link to="/orders/new">Novo Pedido</Link>
-            <Link to="/stock">Movimentações</Link>
-            <Link to="/products">Produtos</Link>
-            <Link to="/users">Usuários</Link>
-            <Link to="/churches">Igrejas</Link>
+            <Link to="/orders" className="truncate">Pedidos</Link>
+            <Link to="/orders/new" className="truncate">Novo Pedido</Link>
+            <Link to="/stock" className="truncate">Movimentações</Link>
+            <Link to="/products" className="truncate">Produtos</Link>
+            <Link to="/users" className="truncate">Usuários</Link>
+            <Link to="/churches" className="truncate">Igrejas</Link>
           </>}
         </div>
         <div className="flex gap-2 items-center">
