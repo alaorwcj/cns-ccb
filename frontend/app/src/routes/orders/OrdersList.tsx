@@ -119,7 +119,8 @@ export default function OrdersList() {
                 <div className="font-medium">Pedido #{o.id}</div>
                 <div><StatusBadge status={o.status} /></div>
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">Igreja: {o.church?.name || `#${o.church_id}`}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">Igreja: {o.church_name || `#${o.church_id}`}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">Cidade: {o.church_city || '-'}</div>
               <div className="text-sm text-gray-600 dark:text-gray-300">Itens: {o.items?.slice(0,3).map((it:any)=>it.product?.name||it.product_id).join(', ')}</div>
             </div>
           ))}
