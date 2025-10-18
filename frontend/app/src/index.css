@@ -31,15 +31,24 @@ main, #main-content {
 
 /* Extra mobile overrides: force dashboard full-width and remove side padding/margins */
 @media (max-width: 640px) {
+	/* If grid layout is causing rendering issues on some devices, fall back to block stacking */
 	.dashboard-grid {
+		display: block !important;
 		grid-template-columns: 1fr !important;
 		gap: 0.75rem !important;
+		width: 100% !important;
+		max-width: 100% !important;
+		transform: none !important;
+		left: 0 !important;
 	}
 	.dashboard-card {
+		display: block !important;
 		width: 100% !important;
+		height: auto !important;
 		margin-left: 0 !important;
 		margin-right: 0 !important;
 		box-sizing: border-box !important;
+		overflow: visible !important;
 	}
 	/* Remove the container max-width padding on very small screens to avoid clipping */
 	.max-w-screen-xl {
