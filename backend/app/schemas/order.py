@@ -42,6 +42,13 @@ class OrderRead(BaseModel):
     approved_at: Optional[datetime]
     delivered_at: Optional[datetime]
     items: List[OrderItemRead]
+    signed_by_id: Optional[int] = None
+    signed_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class OrderSign(BaseModel):
+    # optional note or signer name could be added in future
+    pass

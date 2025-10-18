@@ -46,6 +46,7 @@ class User(Base):
 
     requests: Mapped[List["Order"]] = relationship(
         back_populates="requester",
+        foreign_keys='Order.requester_id',
         cascade="all,delete-orphan",
         lazy="selectin",
     )

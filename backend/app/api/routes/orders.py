@@ -12,6 +12,7 @@ from app.schemas.order import OrderCreate, OrderRead, OrderUpdate
 from app.services.orders import list_orders_for_user, create_order, approve_order, deliver_order
 from app.services.orders import update_order
 from app.services.receipt import generate_order_receipt_pdf
+from datetime import datetime
 
 router = APIRouter(prefix="/orders", tags=["orders"]) 
 
@@ -38,12 +39,23 @@ def post_order(data: OrderCreate, db: Session = Depends(db_dep), payload: dict =
 
 
 @router.get("/{order_id}/receipt")
-def receipt(order_id: int, db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
+def receipt(order_id: int, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
+    """Return PDF receipt for the order.
+
+    Allowed for ADM role or the original requester.
+    """
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status != OrderStatus.ENTREGUE:
         raise HTTPException(status_code=400, detail="Order not delivered yet")
+
+    # allow ADM or the requester who created the order
+    user_role = payload.get("role")
+    user_id = int(payload.get("user_id"))
+    if user_role != UserRole.ADM.value and user_id != order.requester_id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
     from app.services.receipt import generate_order_receipt_pdf
 
     pdf = generate_order_receipt_pdf(db, order)
@@ -88,3 +100,24 @@ def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payl
         return update_order(db, order, data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{order_id}/sign", response_model=OrderRead)
+def sign_order(order_id: int, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
+    """Mark the order as signed by the current user. Allowed if user is ADM or belongs to the same church or is requester."""
+    user_id = int(payload.get("user_id"))
+    role = payload.get("role")
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    # permission: ADM, requester, or same church
+    if role != UserRole.ADM.value and user_id != order.requester_id and (order.church and not any(u.id == user_id for u in order.church.users)):
+        raise HTTPException(status_code=403, detail="Not allowed to sign")
+    # persist signature
+    from datetime import datetime
+    order.signed_by_id = user_id
+    order.signed_at = datetime.utcnow()
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    return order

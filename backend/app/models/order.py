@@ -26,8 +26,11 @@ class Order(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    signed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    requester = relationship("User", back_populates="requests")
+    requester = relationship("User", back_populates="requests", foreign_keys=[requester_id])
+    signed_by = relationship("User", foreign_keys=[signed_by_id])
     church = relationship("Church", back_populates="orders")
     items: Mapped[List["OrderItem"]] = relationship(
         back_populates="order",

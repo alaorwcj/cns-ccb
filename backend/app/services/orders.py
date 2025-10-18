@@ -121,3 +121,12 @@ def deliver_order(db: Session, *, order: Order) -> Order:
     db.commit()
     db.refresh(order)
     return order
+
+
+def sign_order(db: Session, *, order: Order, signer_user_id: int) -> Order:
+    """Mark the order as signed by the given user and set timestamp."""
+    order.signed_by_id = signer_user_id
+    order.signed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(order)
+    return order

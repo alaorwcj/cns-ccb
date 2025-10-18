@@ -34,10 +34,13 @@ def create_user(
         password_hash=get_password_hash(password),
         is_active=True,
     )
+    # add user to session first so relationship assignments persist
+    db.add(user)
+    db.flush()
     if church_ids:
         churches = list(db.scalars(select(Church).where(Church.id.in_(church_ids))))
+        # assign the relationship explicitly
         user.churches = churches
-    db.add(user)
     db.commit()
     db.refresh(user)
     return user
@@ -66,6 +69,7 @@ def update_user(
         user.password_hash = get_password_hash(password)
     if church_ids is not None:
         churches = list(db.scalars(select(Church).where(Church.id.in_(church_ids))))
+        # clear existing associations and set new ones
         user.churches = churches
     db.commit()
     db.refresh(user)

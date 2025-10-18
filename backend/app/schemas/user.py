@@ -3,6 +3,7 @@ from typing import List, Optional
 from pydantic import BaseModel, EmailStr
 
 from app.models.user import UserRole
+from app.schemas.church import ChurchRead
 
 
 class UserBase(BaseModel):
@@ -29,6 +30,7 @@ class UserUpdate(BaseModel):
 
 class UserRead(UserBase):
     id: int
+    churches: List[ChurchRead] = []
 
     class Config:
         from_attributes = True

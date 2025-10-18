@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { api } from '../../services/api'
 import { useAuth } from '../../store/auth'
 import Modal from '../../components/Modal'
@@ -63,6 +63,34 @@ export default function OrdersList() {
     }
   }
 
+  // track which order id is currently being downloaded
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
+
+  const downloadReceipt = async (id: number) => {
+    // open a blank tab first to avoid popup blockers, user action allows it
+    const newWin = window.open('', '_blank')
+    setDownloadingId(id)
+    try {
+      const r = await api.get(`/orders/${id}/receipt`, { responseType: 'blob' })
+      const blob = new Blob([r.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      if (newWin) {
+        // navigate the already-opened tab to the blob URL
+        newWin.location.href = url
+      } else {
+        // fallback: open in current tab
+        window.open(url, '_blank')
+      }
+      // revoke after a delay
+      setTimeout(() => window.URL.revokeObjectURL(url), 10000)
+    } catch (e: any) {
+      if (newWin) newWin.close()
+      alert(e?.response?.data?.detail || 'Falha ao baixar recibo')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
   const startEdit = (o: any) => {
     setEditOrder(o)
   }
@@ -103,7 +131,7 @@ export default function OrdersList() {
                 <td colSpan={7} className="p-8 text-center text-gray-500">Nenhum pedido encontrado</td>
               </tr>
             )}
-            {orders.map((o) => (
+            {orders.map((o: any) => (
               <tr key={o.id} className="hover:bg-gray-50">
                 <td className="p-3 font-mono text-xs">{o.id}</td>
                 <td className="p-3 font-medium">{o.church?.name || `Igreja #${o.church_id}`}</td>
@@ -135,7 +163,13 @@ export default function OrdersList() {
                       <button className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white text-xs font-medium" onClick={() => deliver(o.id)}>Entregar</button>
                     )}
                     {role === 'ADM' && o.status === 'ENTREGUE' && (
-                      <a className="inline-block px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium" href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/orders/${o.id}/receipt`} target="_blank" rel="noreferrer">Recibo</a>
+                      <button
+                        className={`inline-block px-3 py-1 rounded text-white text-xs font-medium ${downloadingId === o.id ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+                        onClick={() => downloadReceipt(o.id)}
+                        disabled={downloadingId === o.id}
+                      >
+                        {downloadingId === o.id ? 'Baixando...' : 'Recibo'}
+                      </button>
                     )}
                   </div>
                 </td>
@@ -218,7 +252,14 @@ function EditOrderForm({ order, onSave, onCancel }: any) {
               <div className="text-xs text-gray-500">Estoque: {p.product?.stock_qty ?? '-'}</div>
             </div>
             <div className="flex items-center gap-2">
-              <input type="number" min={0} max={p.product?.stock_qty ?? 999999} value={p.qty} onChange={(e) => setQtyAt(idx, Math.max(0, Math.min(parseInt(e.target.value||'0'), p.product?.stock_qty ?? 999999)))} className="w-20 border rounded px-2 py-1" />
+                  <input
+                    type="number"
+                    min={0}
+                    max={p.product?.stock_qty ?? 999999}
+                    value={p.qty}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQtyAt(idx, Math.max(0, Math.min(parseInt(e.target.value || '0'), p.product?.stock_qty ?? 999999)))}
+                    className="w-20 border rounded px-2 py-1"
+                  />
               <button className="px-2 py-1 bg-gray-100 rounded text-xs" onClick={() => duplicateAt(idx)}>Duplicar</button>
             </div>
           </div>
