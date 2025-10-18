@@ -20,8 +20,8 @@ export default function StockMovementForm({ onClose, onSave }: StockMovementForm
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get('/products')
-        setProducts(r.data)
+        const r = await api.get('/products?limit=1000') // Get all products for stock movements
+        setProducts(r.data.data || [])
       } catch (e) {
         console.error('Erro ao carregar produtos', e)
       }

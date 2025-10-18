@@ -20,12 +20,12 @@ export default function OrderEdit() {
       try {
         const [cats, prods, chs, ord] = await Promise.all([
           api.get('/categories'),
-          api.get('/products'),
+          api.get('/products?limit=1000'),
           api.get('/churches'),
           api.get(`/orders/${id}`),
         ])
         setCategories(cats.data)
-        setProducts(prods.data)
+        setProducts(prods.data.data || [])
         setChurches(chs.data)
         setOrder(ord.data)
         setChurchId(ord.data.church_id)
