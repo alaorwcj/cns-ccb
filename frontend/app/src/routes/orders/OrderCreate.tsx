@@ -76,8 +76,8 @@ export default function OrderCreate() {
           const qty = items[p.id] || 0
           return (
             <div key={p.id} className="bg-white rounded shadow p-3">
-              <div className="font-semibold">{p.name}</div>
-              <div className="text-xs text-gray-600">Estoque: {p.stock_qty} • {p.unit}</div>
+              <div className="font-semibold truncate">{p.name}</div>
+              <div className="text-xs text-gray-600 truncate">Estoque: {p.stock_qty}  {p.unit}</div>
               <div className="mt-2 flex gap-2 items-center">
                 <input type="number" min={0} max={p.stock_qty} disabled={disabled}
                   className="border rounded px-2 py-1 w-24"

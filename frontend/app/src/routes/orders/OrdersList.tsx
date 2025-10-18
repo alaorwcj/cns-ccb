@@ -109,12 +109,26 @@ export default function OrdersList() {
   if (error) return <div className="text-red-600">{error}</div>
 
   return (
-    <div className="bg-white rounded shadow">
-      <div className="p-4 border-b font-semibold">Pedidos</div>
+    <div className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow min-w-0">
+      <div className="p-4 border-b font-semibold dark:border-gray-700">Pedidos</div>
       {error && <div className="p-4 text-red-600">{error}</div>}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+      <div className="p-0">
+        <div className="block sm:hidden p-3">
+          {orders.map((o) => (
+            <div key={o.id} className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow p-3 mb-3">
+              <div className="flex justify-between items-center">
+                <div className="font-medium">Pedido #{o.id}</div>
+                <div><StatusBadge status={o.status} /></div>
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">Igreja: {o.church?.name || `#${o.church_id}`}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">Itens: {o.items?.slice(0,3).map((it:any)=>it.product?.name||it.product_id).join(', ')}</div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden sm:block">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-full">
+          <thead className="bg-gray-50 dark:bg-gray-700">
             <tr className="text-left">
               <th className="p-3">#</th>
               <th className="p-3">Igreja</th>
@@ -128,33 +142,33 @@ export default function OrdersList() {
           <tbody className="divide-y">
             {orders.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-gray-500">Nenhum pedido encontrado</td>
+                <td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">Nenhum pedido encontrado</td>
               </tr>
             )}
             {orders.map((o: any) => (
-              <tr key={o.id} className="hover:bg-gray-50">
+              <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="p-3 font-mono text-xs">{o.id}</td>
-                <td className="p-3 font-medium">{o.church?.name || `Igreja #${o.church_id}`}</td>
-                <td className="p-3 text-gray-600">{o.church?.city || '-'}</td>
+                <td className="p-3 font-medium min-w-0"><div className="truncate">{o.church?.name || `Igreja #${o.church_id}`}</div></td>
+                <td className="p-3 text-gray-600 dark:text-gray-300 min-w-0"><div className="truncate">{o.church?.city || '-'}</div></td>
                 <td className="p-3"><StatusBadge status={o.status} /></td>
-                <td className="p-3">
+                <td className="p-3 min-w-0">
                   <div className="text-xs space-y-1">
                     {o.items?.slice(0, 3).map((it: any, idx: number) => (
                       <div key={idx}>{it.product?.name || `Produto #${it.product_id}`} × {it.qty}</div>
                     ))}
                     {o.items?.length > 3 && (
-                      <div className="text-gray-500">+ {o.items.length - 3} mais...</div>
+                      <div className="text-gray-500 dark:text-gray-400">+ {o.items.length - 3} mais...</div>
                     )}
                   </div>
                 </td>
-                <td className="p-3 text-xs text-gray-600">
+                <td className="p-3 text-xs text-gray-600 dark:text-gray-300">
                   {new Date(o.created_at).toLocaleDateString('pt-BR')}
                 </td>
                 <td className="p-3">
                   <div className="flex gap-2">
-                    <button className="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-xs" onClick={() => setViewOrder(o)}>Ver</button>
+                    <button className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600 text-xs" onClick={() => setViewOrder(o)}>Ver</button>
                     {o.status === 'PENDENTE' && o.requester_id === Number(localStorage.getItem('user_id')) && (
-                      <button className="px-2 py-1 rounded bg-white border text-xs" onClick={() => startEdit(o)}>Editar</button>
+                      <button className="px-2 py-1 rounded bg-white dark:bg-gray-700 dark:text-white border dark:border-gray-600 text-xs" onClick={() => startEdit(o)}>Editar</button>
                     )}
                     {role === 'ADM' && o.status === 'PENDENTE' && (
                       <button className="px-3 py-1 rounded bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-medium" onClick={() => approve(o.id)}>Aprovar</button>
@@ -176,7 +190,9 @@ export default function OrdersList() {
               </tr>
             ))}
           </tbody>
-        </table>
+            </table>
+          </div>
+        </div>
       </div>
       {viewOrder && (
         <Modal title={`Pedido #${viewOrder.id}`} onClose={() => setViewOrder(null)}>

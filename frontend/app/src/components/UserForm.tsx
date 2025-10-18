@@ -172,13 +172,13 @@ export default function UserForm({ user, onClose, onSave }: UserFormProps) {
                   <div className="text-sm text-gray-500">Nenhuma igreja cadastrada</div>
                 )}
                 {churches.map((church) => (
-                  <label key={church.id} className="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <label key={church.id} className="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer min-w-0">
                     <input
                       type="checkbox"
                       checked={formData.church_ids.includes(church.id)}
                       onChange={() => toggleChurch(church.id)}
                     />
-                    <span className="text-sm">{church.name} - {church.city}</span>
+                    <span className="text-sm truncate max-w-full block">{church.name} - {church.city}</span>
                   </label>
                 ))}
               </div>

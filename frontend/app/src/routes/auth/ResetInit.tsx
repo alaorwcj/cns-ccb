@@ -26,13 +26,13 @@ export default function ResetInit() {
       <div className="max-w-xl bg-white rounded shadow p-4">
         <div className="font-semibold mb-3">Reset de senha (ADM)</div>
         <div className="grid gap-2">
-          <input className="border rounded px-3 py-2" placeholder="E-mail do usuário" value={email} onChange={e => setEmail(e.target.value)} />
-          <button className="bg-blue-600 text-white rounded px-4 py-2 w-max" onClick={submit}>Gerar token de reset</button>
+          <input className="w-full border rounded px-3 py-2" placeholder="E-mail do usuário" value={email} onChange={e => setEmail(e.target.value)} />
+          <button className="w-full sm:w-auto bg-blue-600 text-white rounded px-4 py-2" onClick={submit}>Gerar token de reset</button>
           {error && <div className="text-red-600 text-sm">{error}</div>}
           {token && (
             <div className="mt-3 text-sm">
               <div className="font-semibold">Token gerado (compartilhe por canal seguro):</div>
-              <code className="break-all bg-gray-100 px-2 py-1 rounded inline-block">{token}</code>
+              <code className="break-all bg-gray-100 px-2 py-1 rounded inline-block w-full">{token}</code>
               {expires && <div className="text-gray-600">Expira em: {new Date(expires).toLocaleString()}</div>}
             </div>
           )}

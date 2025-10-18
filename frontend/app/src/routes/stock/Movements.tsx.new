@@ -1,0 +1,129 @@
+import React, { useEffect, useState } from 'react'
+import { api } from '../../services/api'
+import StockMovementForm from '../../components/StockMovementForm'
+
+type MovementTypeBadgeProps = { type: string }
+function MovementTypeBadge({ type }: MovementTypeBadgeProps) {
+  const colors: Record<string, string> = {
+    ENTRADA: 'bg-green-100 text-green-800',
+    SAIDA_MANUAL: 'bg-orange-100 text-orange-800',
+    SAIDA_PEDIDO: 'bg-blue-100 text-blue-800',
+    PERDA: 'bg-red-100 text-red-800',
+  }
+  const labels: Record<string, string> = {
+    ENTRADA: 'Entrada',
+    SAIDA_MANUAL: 'Saída Manual',
+    SAIDA_PEDIDO: 'Saída Pedido',
+    PERDA: 'Perda',
+  }
+  return (
+    <span className={`px-2 py-1 rounded text-xs font-semibold ${colors[type] || 'bg-gray-100 text-gray-800'}`}>
+      {labels[type] || type}
+    </span>
+  )
+}
+
+export default function Movements() {
+  const [movs, setMovs] = useState<any[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [filterType, setFilterType] = useState<string>('all')
+
+  const load = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const r = await api.get('/stock/movements')
+      setMovs(r.data)
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Erro ao carregar')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const filteredMovs = filterType === 'all' ? movs : movs.filter(m => m.type === filterType)
+
+  if (loading) return <div>Carregando...</div>
+
+  return (
+    <>
+      {showForm && (
+        <StockMovementForm onClose={() => setShowForm(false)} onSave={() => { load(); setShowForm(false) }} />
+      )}
+
+      <div className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow min-w-0">
+        <div className="p-4 flex justify-between items-center border-b dark:border-gray-700">
+          <div className="font-semibold">Movimentações de Estoque</div>
+          <div className="flex gap-3 items-center">
+            <select className="border rounded px-2 py-1 text-sm" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+              <option value="all">Todos os tipos</option>
+              <option value="ENTRADA">Entrada</option>
+              <option value="SAIDA_MANUAL">Saída Manual</option>
+              <option value="SAIDA_PEDIDO">Saída Pedido</option>
+              <option value="PERDA">Perda</option>
+            </select>
+            <button onClick={() => setShowForm(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium">+ Nova Movimentação</button>
+          </div>
+        </div>
+
+        {error && <div className="text-red-600 p-4">{error}</div>}
+
+        <div className="p-0">
+          {/* Mobile cards */}
+          <div className="block sm:hidden p-3">
+            {filteredMovs.map((m) => (
+              <div key={m.id} className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow p-3 mb-3">
+                <div className="flex justify-between items-center">
+                  <div className="font-medium">{m.product?.name || `Produto #${m.product_id}`}</div>
+                  <div className="text-sm">{m.qty}</div>
+                </div>
+                <div className="text-sm text-gray-500">{new Date(m.created_at).toLocaleDateString('pt-BR')}</div>
+                <div className="text-xs text-gray-500 mt-1">{m.note || '-'}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr className="text-left">
+                    <th className="p-3">Data/Hora</th>
+                    <th className="p-3">Produto</th>
+                    <th className="p-3">Tipo</th>
+                    <th className="p-3">Quantidade</th>
+                    <th className="p-3">Pedido</th>
+                    <th className="p-3">Observação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredMovs.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-gray-500 dark:text-gray-400">{filterType === 'all' ? 'Nenhuma movimentação registrada' : `Nenhuma movimentação do tipo ${filterType}`}</td>
+                    </tr>
+                  )}
+
+                  {filteredMovs.map((m) => (
+                    <tr key={m.id} className="hover:bg-gray-50">
+                      <td className="p-3 text-xs">{new Date(m.created_at).toLocaleDateString('pt-BR')} {new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="p-3 font-medium">{m.product?.name || `Produto #${m.product_id}`}<div className="text-xs text-gray-500">{m.product?.unit || ''}</div></td>
+                      <td className="p-3"><MovementTypeBadge type={m.type} /></td>
+                      <td className="p-3 font-mono">{m.qty}</td>
+                      <td className="p-3 text-xs">{m.related_order_id ? <a href={`/orders`} className="text-blue-600 dark:text-blue-300 hover:underline">Pedido #{m.related_order_id}</a> : <span className="text-gray-400">-</span>}</td>
+                      <td className="p-3 text-xs text-gray-600">{m.note || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}

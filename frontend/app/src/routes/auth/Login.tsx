@@ -50,11 +50,11 @@ export default function Login() {
           </div>
           <form className="flex flex-col gap-3 mt-5" onSubmit={onSubmit}>
             <label className="text-sm">Email</label>
-            <input className="border rounded px-3 py-2" placeholder="Informe seu email" value={username} onChange={(e) => setUsername(e.target.value)} />
+            <input className="w-full border rounded px-3 py-2" placeholder="Informe seu email" value={username} onChange={(e) => setUsername(e.target.value)} />
             <label className="text-sm">Senha</label>
-            <input className="border rounded px-3 py-2" placeholder="Informe sua senha" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input className="w-full border rounded px-3 py-2" placeholder="Informe sua senha" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             {error && <div className="text-red-600 text-sm">{error}</div>}
-            <button className="bg-blue-600 hover:bg-blue-700 transition text-white rounded px-4 py-2">Acessar conta</button>
+            <button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 transition text-white rounded px-4 py-2">Acessar conta</button>
           </form>
           <div className="mt-6 pt-4 border-t text-center">
             <div className="text-xs text-gray-600">Esqueceu sua senha?</div>

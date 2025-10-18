@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../store/auth'
-import { useState, useEffect, useLayoutEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 
 function Icon({ name }: { name: string }) {
   // Simple inline icons to avoid broken/missing pngs
@@ -83,7 +83,40 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [themeDark, setThemeDark] = useState<boolean>(() => {
     try { return localStorage.getItem('theme_dark') === '1' } catch { return false }
   })
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem('sidebar_collapsed') === '1' } catch { return false }
+  })
   const [mounted, setMounted] = useState(false)
+  const touchStartX = useRef<number | null>(null)
+  const [dragX, setDragX] = useState<number>(0)
+  const dragging = useRef(false)
+  const sidebarRef = useRef<HTMLElement | null>(null)
+
+  const onTouchStart = (e: any) => {
+    if (!open) return
+    touchStartX.current = e.touches[0].clientX
+    dragging.current = true
+    setDragX(0)
+  }
+
+  const onTouchMove = (e: any) => {
+    if (!dragging.current || touchStartX.current == null) return
+    const delta = e.touches[0].clientX - touchStartX.current
+    // only consider left swipes (negative delta)
+    if (delta < 0) setDragX(delta)
+  }
+
+  const onTouchEnd = () => {
+    if (!dragging.current) return
+    dragging.current = false
+    // if swiped left beyond threshold, close
+    if (dragX < -80) {
+      setOpen(false)
+    }
+    // reset drag
+    setDragX(0)
+    touchStartX.current = null
+  }
 
   // Apply theme before paint to avoid flash
   useLayoutEffect(() => {
@@ -99,13 +132,38 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     setMounted(true)
   }, [])
 
+  // When the mobile sidebar opens, prevent body scroll and move focus to the
+  // first link for accessibility. Clean up on close.
+  useEffect(() => {
+    try {
+      document.body.style.overflow = open ? 'hidden' : ''
+    } catch {}
+    if (open) {
+      const first = sidebarRef.current?.querySelector<HTMLAnchorElement>('a')
+      try { first?.focus() } catch {}
+    }
+    return () => {
+      try { document.body.style.overflow = '' } catch {}
+    }
+  }, [open])
+
+  // close with Escape key
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && open) setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 z-50 bg-white dark:bg-gray-800 p-2 rounded border">Pular para o conteúdo</a>
       <div className="flex">
         {/* mobile top bar */}
-        <div className="w-full md:hidden flex items-center justify-between bg-white p-3 border-b">
+        <div className="w-full md:hidden flex items-center justify-between bg-white p-3 border-b pt-[env(safe-area-inset-top)]">
           <div className="flex items-center gap-3">
-            <button onClick={() => setOpen(true)} aria-label="Abrir menu" className="p-2 rounded hover:bg-gray-100">
+            <button onClick={() => setOpen(true)} aria-label="Abrir menu" aria-controls="sidebar" aria-expanded={open} className="p-2 rounded hover:bg-gray-100">
               <svg className="h-6 w-6 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16" strokeWidth="2" strokeLinecap="round"/></svg>
             </button>
             <img src="/ccb.png" alt="CCB" className="h-8"/>
@@ -114,51 +172,97 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* sidebar */}
-  <aside className={`fixed inset-y-0 left-0 z-30 transform ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:static md:relative w-64 ${mounted ? 'transition-transform duration-300 ease-in-out' : 'transition-none'} bg-white border-r flex flex-col ${themeDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
+        <aside
+          ref={sidebarRef}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          role="navigation"
+          aria-label="Main navigation"
+          id="sidebar"
+          aria-hidden={!open && 'true'}
+          className={`fixed inset-y-0 left-0 z-30 transform ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:static md:relative ${collapsed ? 'w-20' : 'w-64'} ${mounted ? 'transition-transform duration-300 ease-in-out' : 'transition-none'} bg-white border-r flex flex-col min-w-0 ${themeDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}
+          style={dragX ? { transform: `translateX(${Math.min(0, dragX)}px)` } : undefined}
+        >
           <div className={`p-4 border-b flex items-center gap-3 ${themeDark ? 'border-gray-700' : 'border-gray-100'}`}>
-            <img src="/ccb.png" alt="CCB" className={`h-10 ${themeDark ? 'rounded bg-white/10 p-1' : ''}`}/>
-            <div>
-              <div className={`font-semibold ${themeDark ? 'text-white' : ''}`}>CNS Santa Isabel</div>
-              <div className={`text-xs ${themeDark ? 'text-gray-300' : 'text-gray-500'} mt-1`}>Painel administrativo</div>
-            </div>
+            <img src="/ccb.png" alt="CCB" className={`h-10 object-contain ${themeDark ? 'rounded bg-white/10 p-1' : ''}`}/>
+            {!collapsed && (
+              <div>
+                <div className={`font-semibold ${themeDark ? 'text-white' : ''}`}>CNS Santa Isabel</div>
+                <div className={`text-xs ${themeDark ? 'text-gray-300' : 'text-gray-500'} mt-1`}>Painel administrativo</div>
+              </div>
+            )}
+            {collapsed && (
+              <button title="Expandir menu" className="ml-auto p-1" onClick={() => { setCollapsed(false); try{ localStorage.setItem('sidebar_collapsed','0')}catch{} }}>
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h18" strokeWidth="2" strokeLinecap="round"/></svg>
+              </button>
+            )}
             <button className="ml-auto md:hidden p-1" onClick={() => setOpen(false)} aria-label="Fechar menu">
               <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" strokeWidth="2" strokeLinecap="round"/></svg>
             </button>
           </div>
-          <nav className="p-3 flex-1 flex flex-col gap-1">
-            <NavLink to="/"><Icon name="dashboard"/> Dashboard</NavLink>
-            <NavLink to="/orders"><Icon name="orders"/> Pedidos</NavLink>
-            <NavLink to="/orders/new"><Icon name="new"/> Fazer pedido</NavLink>
-            <NavLink to="/stock"><Icon name="stock"/> Movimentações</NavLink>
-            <NavLink to="/products"><Icon name="products"/> Produtos</NavLink>
-            {role === 'ADM' && <NavLink to="/users"><Icon name="users"/> Usuários</NavLink>}
-            <NavLink to="/churches"><Icon name="church"/> Igrejas</NavLink>
+          <nav className="p-3 flex-1 flex flex-col gap-1 min-w-0" aria-label="Primary">
+            <div title="Alternar colapso" className="mb-2">
+              <button onClick={() => { setCollapsed(!collapsed); try{ localStorage.setItem('sidebar_collapsed', !collapsed ? '1':'0') }catch{} }} className="p-2 rounded hover:bg-gray-100">
+                {collapsed ? '»' : '‹'}
+              </button>
+            </div>
+            <NavLink to="/"><Icon name="dashboard"/> {!collapsed && 'Dashboard'}</NavLink>
+            <NavLink to="/orders"><Icon name="orders"/> {!collapsed && 'Pedidos'}</NavLink>
+            <NavLink to="/orders/new"><Icon name="new"/> {!collapsed && 'Fazer pedido'}</NavLink>
+            <NavLink to="/stock"><Icon name="stock"/> {!collapsed && 'Movimentações'}</NavLink>
+            <NavLink to="/products"><Icon name="products"/> {!collapsed && 'Produtos'}</NavLink>
+            {role === 'ADM' && <NavLink to="/users"><Icon name="users"/> {!collapsed && 'Usuários'}</NavLink>}
+            <NavLink to="/churches"><Icon name="church"/> {!collapsed && 'Igrejas'}</NavLink>
           </nav>
           <div className={`p-3 border-t text-xs ${themeDark ? 'border-gray-700 text-gray-300' : 'border-gray-100 text-gray-600'}`}>
             <div className="flex items-center justify-between gap-2">
-              <span>Papel: <b className={themeDark ? 'text-white' : ''}>{role || '—'}</b></span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setThemeDark(!themeDark)}
-                  aria-pressed={themeDark}
-                  className={`p-1 rounded-md flex items-center gap-2 text-sm ${themeDark ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700'}`}
-                >
-                  {themeDark ? (
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  ) : (
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4" strokeWidth="1.5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  )}
-                  <span className="text-xs">{themeDark ? 'Escuro' : 'Claro'}</span>
-                </button>
+              {!collapsed ? (
+                <>
+                  <span>Papel: <b className={themeDark ? 'text-white' : ''}>{role || '—'}</b></span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setThemeDark(!themeDark)}
+                      aria-pressed={themeDark}
+                      className={`p-1 rounded-md flex items-center gap-2 text-sm ${themeDark ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700'}`}
+                    >
+                      {themeDark ? (
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      ) : (
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4" strokeWidth="1.5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      )}
+                      <span className="text-xs">{themeDark ? 'Escuro' : 'Claro'}</span>
+                    </button>
 
-                <button className={`${themeDark ? 'text-gray-300' : 'text-red-600'}`} onClick={clear}>Sair</button>
-              </div>
+                    <button className={`${themeDark ? 'text-gray-300' : 'text-red-600'}`} onClick={clear}>Sair</button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center w-full">
+                  <button title="Sair" aria-label="Sair" onClick={clear} className="text-red-600 p-1">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 17l5-5m0 0l-5-5m5 5H9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </aside>
+        {/* overlay */}
+        {open && (
+          <div
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 bg-black/40 z-20 md:hidden transition-opacity"
+            aria-hidden={!open}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          />
+        )}
 
-        <main className="flex-1 p-6 md:ml-64">
-          {children}
+        <main id="main-content" role="main" tabIndex={-1} className={`flex-1 p-4 md:p-6 ${collapsed ? 'md:ml-20' : 'md:ml-64'} min-w-0`}>
+          <div className="max-w-screen-xl mx-auto w-full px-4 sm:px-6 lg:px-8">
+            {children}
+          </div>
         </main>
       </div>
     </div>
