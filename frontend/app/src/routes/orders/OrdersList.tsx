@@ -148,7 +148,7 @@ export default function OrdersList() {
               <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="p-3 font-mono text-xs">{o.id}</td>
                 <td className="p-3 font-medium min-w-0"><div className="truncate">{o.church_name || `Igreja #${o.church_id}`}</div></td>
-                <td className="p-3 text-gray-600 dark:text-gray-300 min-w-0"><div className="truncate">{o.church?.city || '-'}</div></td>
+                <td className="p-3 text-gray-600 dark:text-gray-300 min-w-0"><div className="truncate">{o.church_city || '-'}</div></td>
                 <td className="p-3"><StatusBadge status={o.status} /></td>
                 <td className="p-3 min-w-0">
                   <div className="text-xs space-y-1">

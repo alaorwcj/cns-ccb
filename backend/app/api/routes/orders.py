@@ -25,9 +25,10 @@ def get_orders(db: Session = Depends(db_dep), payload: dict = Depends(get_curren
 
     user = db.get(User, user_id)
     orders = list_orders_for_user(db, user=user, is_admin=is_admin)
-    # Add church_name to each order
+    # Add church_name and church_city to each order
     for order in orders:
         order.church_name = order.church.name if order.church else None
+        order.church_city = order.church.city if order.church else None
     return orders
 
 
