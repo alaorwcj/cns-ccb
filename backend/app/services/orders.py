@@ -13,7 +13,7 @@ from app.models.stock_movement import MovementType
 
 
 def list_orders_for_user(db: Session, *, user: User, is_admin: bool) -> List[Order]:
-    stmt = select(Order).options(selectinload(Order.church)).order_by(Order.created_at.desc())
+    stmt = select(Order).options(selectinload(Order.church), selectinload(Order.items)).order_by(Order.created_at.desc())
     if not is_admin:
         stmt = stmt.where(Order.requester_id == user.id)
     return list(db.scalars(stmt))
@@ -58,7 +58,9 @@ def create_order(
 
 
 def update_order(db: Session, *, order: Order, data) -> Order:
-    # data is an object with optional church_id and items
+    if order.status != OrderStatus.PENDENTE:
+        raise ValueError("Only pending orders can be updated")
+
     if data.church_id is not None:
         order.church_id = data.church_id
 
@@ -66,37 +68,11 @@ def update_order(db: Session, *, order: Order, data) -> Order:
         items = [(it.product_id, it.qty) for it in data.items]
         if not items:
             raise ValueError("Order must have items")
+
         prods = {p.id: p for p in db.scalars(select(Product).where(Product.id.in_([pid for pid, _ in items])))}
         order_items: List[OrderItem] = []
+
         for product_id, qty in items:
-            prod = prods.get(product_id)
-            if not prod or not prod.is_active:
-                raise ValueError("Invalid product")
-            if prod.stock_qty is None or prod.stock_qty < qty or qty <= 0:
-                raise ValueError("Insufficient stock for one or more items")
-            unit_price: Decimal = prod.price
-            subtotal: Decimal = (unit_price or Decimal("0")) * Decimal(qty)
-            order_items.append(
-                OrderItem(product_id=product_id, qty=qty, unit_price=unit_price, subtotal=subtotal)
-            )
-def update_order(db: Session, *, order: Order, data: dict) -> Order:
-    if order.status != OrderStatus.PENDENTE:
-        raise ValueError("Only pending orders can be updated")
-
-    if "church_id" in data and data["church_id"] is not None:
-        order.church_id = data["church_id"]
-
-    if "items" in data and data["items"] is not None:
-        items = data["items"]
-        if not items:
-            raise ValueError("Order must have items")
-
-        prods = {p.id: p for p in db.scalars(select(Product).where(Product.id.in_([it["product_id"] for it in items])))}
-        order_items: List[OrderItem] = []
-
-        for it in items:
-            product_id = it["product_id"]
-            qty = it["qty"]
             prod = prods.get(product_id)
             if not prod or not prod.is_active:
                 raise ValueError("Invalid product")

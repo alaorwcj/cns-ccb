@@ -43,6 +43,31 @@ def post_order(data: OrderCreate, db: Session = Depends(db_dep), payload: dict =
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/{order_id}", response_model=OrderRead)
+def get_order(order_id: int, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
+    user_id = int(payload.get("user_id"))
+    is_admin = payload.get("role") == UserRole.ADM.value
+    
+    from sqlalchemy.orm import selectinload
+    from sqlalchemy import select
+    
+    stmt = select(Order).options(selectinload(Order.church), selectinload(Order.items)).where(Order.id == order_id)
+    order = db.scalar(stmt)
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Allow if admin or the requester
+    if not is_admin and order.requester_id != user_id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    
+    # Add church_name and church_city
+    order.church_name = order.church.name if order.church else None
+    order.church_city = order.church.city if order.church else None
+    
+    return order
+
+
 @router.get("/{order_id}/receipt")
 def receipt(order_id: int, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
     """Return PDF receipt for the order.
@@ -102,7 +127,7 @@ def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payl
     if order.status != OrderStatus.PENDENTE:
         raise HTTPException(status_code=400, detail="Only pending orders can be updated")
     try:
-        return update_order(db, order, data)
+        return update_order(db, order=order, data=data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
