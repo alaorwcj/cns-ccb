@@ -4,10 +4,12 @@ import Login from './routes/auth/Login'
 import Dashboard from './routes/dash/Dashboard'
 import OrdersList from './routes/orders/OrdersList'
 import OrderCreate from './routes/orders/OrderCreate'
+import OrderEdit from './routes/orders/OrderEdit'
 import Movements from './routes/stock/Movements'
 import ProductsList from './routes/products/ProductsList'
 import UsersList from './routes/users/UsersList'
 import ChurchesList from './routes/churches/ChurchesList'
+import CategoriesList from './routes/categories/CategoriesList'
 import Layout from './components/AppLayout'
 import ResetConfirm from './routes/auth/ResetConfirm'
 import ResetInit from './routes/auth/ResetInit'
@@ -32,6 +34,7 @@ function Nav() {
             <Link to="/orders/new" className="truncate">Novo Pedido</Link>
             <Link to="/stock" className="truncate">Movimentações</Link>
             <Link to="/products" className="truncate">Produtos</Link>
+            <Link to="/categories" className="truncate">Categorias</Link>
             <Link to="/users" className="truncate">Usuários</Link>
             <Link to="/churches" className="truncate">Igrejas</Link>
           </>}
@@ -58,8 +61,10 @@ export default function App() {
         <Route path="/" element={<Protected><Layout><Dashboard /></Layout></Protected>} />
         <Route path="/orders" element={<Protected><Layout><OrdersList /></Layout></Protected>} />
         <Route path="/orders/new" element={<Protected><Layout><OrderCreate /></Layout></Protected>} />
+        <Route path="/orders/:id/edit" element={<Protected><Layout><OrderEdit /></Layout></Protected>} />
         <Route path="/stock" element={<Protected roles={["ADM"]}><Layout><Movements /></Layout></Protected>} />
         <Route path="/products" element={<Protected roles={["ADM"]}><Layout><ProductsList /></Layout></Protected>} />
+        <Route path="/categories" element={<Protected roles={["ADM"]}><Layout><CategoriesList /></Layout></Protected>} />
         <Route path="/users" element={<Protected roles={["ADM"]}><Layout><UsersList /></Layout></Protected>} />
         <Route path="/churches" element={<Protected roles={["ADM"]}><Layout><ChurchesList /></Layout></Protected>} />
         <Route path="/admin/reset" element={<Protected roles={["ADM"]}><Layout><ResetInit /></Layout></Protected>} />

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
 import { useAuth } from '../../store/auth'
 import Modal from '../../components/Modal'
@@ -22,6 +23,7 @@ export default function OrdersList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const role = useAuth((s) => s.role)
+  const navigate = useNavigate()
 
   const load = async () => {
     setLoading(true)
@@ -49,7 +51,6 @@ export default function OrdersList() {
 
   const [viewOrder, setViewOrder] = useState<any | null>(null)
   const [confirm, setConfirm] = useState<{ id: number; action: 'approve' | 'deliver' } | null>(null)
-  const [editOrder, setEditOrder] = useState<any | null>(null)
 
   const doConfirm = async () => {
     if (!confirm) return
@@ -92,17 +93,7 @@ export default function OrdersList() {
   }
 
   const startEdit = (o: any) => {
-    setEditOrder(o)
-  }
-
-  const saveEdit = async (payload: any) => {
-    try {
-      await api.put(`/orders/${payload.id}`, payload)
-      setEditOrder(null)
-      await load()
-    } catch (e: any) {
-      alert(e?.response?.data?.detail || 'Falha ao atualizar pedido')
-    }
+    navigate(`/orders/${o.id}/edit`)
   }
 
   if (loading) return <div>Carregando...</div>
@@ -148,7 +139,7 @@ export default function OrdersList() {
             {orders.map((o: any) => (
               <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="p-3 font-mono text-xs">{o.id}</td>
-                <td className="p-3 font-medium min-w-0"><div className="truncate">{o.church?.name || `Igreja #${o.church_id}`}</div></td>
+                <td className="p-3 font-medium min-w-0"><div className="truncate">{o.church_name || `Igreja #${o.church_id}`}</div></td>
                 <td className="p-3 text-gray-600 dark:text-gray-300 min-w-0"><div className="truncate">{o.church?.city || '-'}</div></td>
                 <td className="p-3"><StatusBadge status={o.status} /></td>
                 <td className="p-3 min-w-0">
@@ -224,67 +215,6 @@ export default function OrdersList() {
           </div>
         </Modal>
       )}
-      {editOrder && (
-        <Modal title={`Editar Pedido #${editOrder.id}`} onClose={() => setEditOrder(null)}>
-          <EditOrderForm order={editOrder} onSave={saveEdit} onCancel={() => setEditOrder(null)} />
-        </Modal>
-      )}
-    </div>
-  )
-}
-
-function EditOrderForm({ order, onSave, onCancel }: any) {
-  // Use only items from the order for editing
-  const [items, setItems] = useState(() => {
-    // represent as array of { product_id, qty, product }
-    return (order.items || []).map((it: any) => ({ product_id: it.product_id, qty: it.qty, product: it.product }))
-  })
-
-  const setQtyAt = (index: number, qty: number) => {
-    setItems((prev: any[]) => prev.map((it, i) => i === index ? { ...it, qty } : it))
-  }
-
-  const duplicateAt = (index: number) => {
-    setItems((prev: any[]) => {
-      const it = prev[index]
-      // duplicate by adding same qty to the current one (quick duplicate)
-      const newQty = (it.qty || 0) + (it.qty || 0)
-      return prev.map((it2, i) => i === index ? { ...it2, qty: newQty } : it2)
-    })
-  }
-
-  const submit = () => {
-    const chosen = items.map((it: any) => ({ product_id: Number(it.product_id), qty: Number(it.qty) })).filter((it: any) => it.qty > 0)
-    onSave({ id: order.id, church_id: order.church_id, items: chosen })
-  }
-
-  return (
-    <div>
-      <div className="grid gap-2 max-h-64 overflow-auto">
-        {items.map((p: any, idx: number) => (
-          <div key={`${p.product_id}-${idx}`} className="flex justify-between items-center gap-4 py-1">
-            <div className="flex-1">
-              <div className="font-medium">{p.product?.name || `Produto #${p.product_id}`}</div>
-              <div className="text-xs text-gray-500">Estoque: {p.product?.stock_qty ?? '-'}</div>
-            </div>
-            <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={p.product?.stock_qty ?? 999999}
-                    value={p.qty}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQtyAt(idx, Math.max(0, Math.min(parseInt(e.target.value || '0'), p.product?.stock_qty ?? 999999)))}
-                    className="w-20 border rounded px-2 py-1"
-                  />
-              <button className="px-2 py-1 bg-gray-100 rounded text-xs" onClick={() => duplicateAt(idx)}>Duplicar</button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-4 flex gap-2 justify-end">
-        <button className="px-3 py-1 border rounded" onClick={onCancel}>Cancelar</button>
-        <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={submit}>Salvar</button>
-      </div>
     </div>
   )
 }

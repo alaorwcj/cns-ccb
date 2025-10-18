@@ -16,3 +16,22 @@ def create_category(db: Session, name: str) -> Category:
     db.commit()
     db.refresh(cat)
     return cat
+
+
+def update_category(db: Session, category_id: int, name: str) -> Optional[Category]:
+    cat = db.get(Category, category_id)
+    if not cat:
+        return None
+    cat.name = name
+    db.commit()
+    db.refresh(cat)
+    return cat
+
+
+def delete_category(db: Session, category_id: int) -> bool:
+    cat = db.get(Category, category_id)
+    if not cat:
+        return False
+    db.delete(cat)
+    db.commit()
+    return True

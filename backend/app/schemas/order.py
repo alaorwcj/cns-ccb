@@ -37,6 +37,7 @@ class OrderRead(BaseModel):
     id: int
     requester_id: int
     church_id: int
+    church_name: Optional[str] = None
     status: OrderStatus
     created_at: datetime
     approved_at: Optional[datetime]

@@ -9,6 +9,10 @@ class CategoryCreate(CategoryBase):
     pass
 
 
+class CategoryUpdate(CategoryBase):
+    pass
+
+
 class CategoryRead(CategoryBase):
     id: int
 
