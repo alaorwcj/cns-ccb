@@ -11,12 +11,12 @@ router = APIRouter(prefix="/churches", tags=["churches"])
 
 
 @router.get("", response_model=List[ChurchRead])
-def get_churches(db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
+def get_churches(db: Session = Depends(db_dep)):
     return list_churches(db)
 
 
 @router.get("/cities", response_model=List[str])
-def get_cities(db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
+def get_cities(db: Session = Depends(db_dep)):
     return list_cities(db)
 
 

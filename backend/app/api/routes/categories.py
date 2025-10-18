@@ -10,7 +10,7 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 
 
 @router.get("", response_model=List[CategoryRead])
-def get_categories(db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
+def get_categories(db: Session = Depends(db_dep)):
     return list_categories(db)
 
 

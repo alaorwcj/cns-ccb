@@ -24,7 +24,6 @@ def get_products(
     q: Optional[str] = Query(default=None, alias="search"),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=50, ge=1, le=100),
-    _admin=Depends(require_role("ADM")),
 ):
     data = list_products(db, category_id=category_id, q=q, page=page, limit=limit)
     total = count_products(db, category_id=category_id, q=q)
