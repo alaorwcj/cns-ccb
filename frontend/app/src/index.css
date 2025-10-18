@@ -4,3 +4,48 @@
 
 :root { color-scheme: light dark; }
 body { @apply bg-gray-50 text-gray-900; }
+
+/* Prevent elements from overflowing and ensure images scale */
+* { box-sizing: border-box; }
+img { max-width: 100%; height: auto; display: block; }
+
+/* Ensure tables and long content don't force layout overflow */
+table { width: 100%; }
+
+/* Strong overrides to prevent dashboard card collapse on small screens */
+.dashboard-grid {
+	grid-auto-rows: minmax(88px, auto) !important;
+}
+.dashboard-card {
+	height: 100% !important;
+	display: flex !important;
+	flex-direction: column !important;
+	justify-content: space-between !important;
+	overflow: hidden !important;
+}
+
+/* Fallback safety: ensure main content can shrink without overflowing sidebar */
+main, #main-content {
+	min-width: 0 !important;
+}
+
+/* Extra mobile overrides: force dashboard full-width and remove side padding/margins */
+@media (max-width: 640px) {
+	.dashboard-grid {
+		grid-template-columns: 1fr !important;
+		gap: 0.75rem !important;
+	}
+	.dashboard-card {
+		width: 100% !important;
+		margin-left: 0 !important;
+		margin-right: 0 !important;
+		box-sizing: border-box !important;
+	}
+	/* Remove the container max-width padding on very small screens to avoid clipping */
+	.max-w-screen-xl {
+		padding-left: 0 !important;
+		padding-right: 0 !important;
+		max-width: 100% !important;
+	}
+}
+
