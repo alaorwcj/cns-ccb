@@ -57,7 +57,7 @@ class ProductReportItem(BaseModel):
     name: str
     category_name: str
     stock_quantity: int
-    min_stock: Optional[int]
+    low_stock_threshold: Optional[int]
     last_movement: Optional[datetime]
     movement_count: int
     status: str  # 'LOW_STOCK', 'OUT_OF_STOCK', 'NORMAL'

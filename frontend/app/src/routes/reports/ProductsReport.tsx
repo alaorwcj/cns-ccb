@@ -13,7 +13,7 @@ interface ProductData {
     name: string
     category_name: string
     stock_quantity: number
-    min_stock: number | null
+    low_stock_threshold: number | null
     last_movement: string | null
     movement_count: number
     status: string
@@ -49,7 +49,7 @@ export default function ProductsReport(): JSX.Element {
       product.name,
       product.category_name,
       product.stock_quantity,
-      product.min_stock || '',
+      product.low_stock_threshold || '',
       product.status,
       product.last_movement ? new Date(product.last_movement).toLocaleDateString('pt-BR') : '',
       product.movement_count
@@ -178,13 +178,13 @@ export default function ProductsReport(): JSX.Element {
                 <td className="px-4 py-2 text-sm text-gray-900">
                   <span className={`font-medium ${
                     product.stock_quantity === 0 ? 'text-red-600' :
-                    product.min_stock && product.stock_quantity <= product.min_stock ? 'text-yellow-600' :
+                    product.low_stock_threshold && product.stock_quantity <= product.low_stock_threshold ? 'text-yellow-600' :
                     'text-green-600'
                   }`}>
                     {product.stock_quantity}
                   </span>
                 </td>
-                <td className="px-4 py-2 text-sm text-gray-900">{product.min_stock || '-'}</td>
+                <td className="px-4 py-2 text-sm text-gray-900">{product.low_stock_threshold || '-'}</td>
                 <td className="px-4 py-2 text-sm">
                   <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(product.status)}`}>
                     {getStatusText(product.status)}

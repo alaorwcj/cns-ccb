@@ -120,7 +120,7 @@ def get_order_report(
         Order.created_at,
         Order.status,
         func.count(OrderItem.id).label('total_items'),
-        func.sum(OrderItem.quantity).label('total_quantity')
+        func.sum(OrderItem.qty).label('total_quantity')
     ).join(Church).outerjoin(OrderItem).group_by(Order.id, Church.name, Order.created_at, Order.status)
 
     conditions = []
@@ -143,7 +143,7 @@ def get_order_report(
         func.count(Order.id).label('total_orders'),
         func.sum(case((Order.status == 'PENDENTE', 1), else_=0)).label('pending_orders'),
         func.sum(case((Order.status == 'ENTREGUE', 1), else_=0)).label('delivered_orders'),
-        func.sum(OrderItem.quantity).label('total_quantity')
+        func.sum(OrderItem.qty).label('total_quantity')
     ).outerjoin(OrderItem)
 
     if conditions:
@@ -154,7 +154,7 @@ def get_order_report(
     summary = OrderSummary(
         total_orders=summary_result.total_orders or 0,
         pending_orders=summary_result.pending_orders or 0,
-        completed_orders=summary_result.delivered_orders or 0,
+        delivered_orders=summary_result.delivered_orders or 0,
         total_quantity=summary_result.total_quantity or 0,
         period_start=start_date,
         period_end=end_date
@@ -174,9 +174,9 @@ def get_order_report(
     # Top products
     top_products_query = select(
         Product.name,
-        func.sum(OrderItem.quantity).label('total_quantity'),
+        func.sum(OrderItem.qty).label('total_quantity'),
         func.count(OrderItem.order_id.distinct()).label('order_count')
-    ).join(OrderItem).join(Order).group_by(Product.id, Product.name).order_by(desc(func.sum(OrderItem.quantity))).limit(10)
+    ).join(OrderItem).join(Order).group_by(Product.id, Product.name).order_by(desc(func.sum(OrderItem.qty))).limit(10)
 
     if conditions:
         top_products_query = top_products_query.where(and_(*conditions))
@@ -201,10 +201,10 @@ def get_product_report(db: Session) -> ProductReport:
         Product.name,
         Category.name.label('category_name'),
         Product.stock_qty,
-        Product.min_stock,
+        Product.low_stock_threshold,
         func.max(StockMovement.created_at).label('last_movement'),
         func.count(StockMovement.id).label('movement_count')
-    ).outerjoin(Category).outerjoin(StockMovement).group_by(Product.id, Product.name, Category.name, Product.stock_qty, Product.min_stock)
+    ).outerjoin(Category).outerjoin(StockMovement).group_by(Product.id, Product.name, Category.name, Product.stock_qty, Product.low_stock_threshold)
 
     result = db.execute(query).fetchall()
 
@@ -217,7 +217,7 @@ def get_product_report(db: Session) -> ProductReport:
         if row.stock_qty == 0:
             status = 'OUT_OF_STOCK'
             out_of_stock_count += 1
-        elif row.min_stock and row.stock_qty <= row.min_stock:
+        elif row.low_stock_threshold and row.stock_qty <= row.low_stock_threshold:
             status = 'LOW_STOCK'
             low_stock_count += 1
 
@@ -226,7 +226,7 @@ def get_product_report(db: Session) -> ProductReport:
             name=row.name,
             category_name=row.category_name or 'Sem categoria',
             stock_quantity=row.stock_qty or 0,
-            min_stock=row.min_stock,
+            low_stock_threshold=row.low_stock_threshold,
             last_movement=row.last_movement,
             movement_count=row.movement_count,
             status=status
@@ -249,9 +249,9 @@ def get_church_report(db: Session) -> ChurchReport:
         Church.id,
         Church.name,
         func.count(Order.id).label('total_orders'),
-        func.sum(OrderItem.quantity).label('total_quantity'),
+        func.sum(OrderItem.qty).label('total_quantity'),
         func.max(Order.created_at).label('last_order'),
-        func.avg(OrderItem.quantity).label('avg_order_size')
+        func.avg(OrderItem.qty).label('avg_order_size')
     ).outerjoin(Order).outerjoin(OrderItem).group_by(Church.id, Church.name)
 
     result = db.execute(query).fetchall()
@@ -300,7 +300,7 @@ def get_dashboard_report(db: Session) -> DashboardReport:
     ))
     pending_orders = db.scalar(select(func.count(Order.id)).where(Order.status == 'PENDENTE'))
     low_stock_products = db.scalar(select(func.count(Product.id)).where(
-        and_(Product.min_stock.isnot(None), Product.stock_qty <= Product.min_stock)
+        and_(Product.low_stock_threshold.isnot(None), Product.stock_qty <= Product.low_stock_threshold)
     ))
     active_churches = db.scalar(select(func.count(Church.id)).where(
         Church.id.in_(select(Order.church_id).where(
@@ -351,8 +351,8 @@ def get_dashboard_report(db: Session) -> DashboardReport:
     # Top products by orders
     top_products_query = select(
         Product.name,
-        func.sum(OrderItem.quantity).label('total_ordered')
-    ).join(OrderItem).join(Order).group_by(Product.id, Product.name).order_by(desc(func.sum(OrderItem.quantity))).limit(10)
+        func.sum(OrderItem.qty).label('total_ordered')
+    ).join(OrderItem).join(Order).group_by(Product.id, Product.name).order_by(desc(func.sum(OrderItem.qty))).limit(10)
 
     top_products_result = db.execute(top_products_query).fetchall()
     top_products = [
@@ -378,7 +378,7 @@ def get_user_orders_report(db: Session, church_id: int) -> UserOrderReport:
         Order.created_at,
         Order.status,
         func.count(OrderItem.id).label('total_items'),
-        func.sum(OrderItem.quantity).label('total_quantity')
+        func.sum(OrderItem.qty).label('total_quantity')
     ).outerjoin(OrderItem).where(Order.church_id == church_id).group_by(Order.id, Order.created_at, Order.status).order_by(desc(Order.created_at))
 
     result = db.execute(query).fetchall()
@@ -393,7 +393,7 @@ def get_user_orders_report(db: Session, church_id: int) -> UserOrderReport:
         # Get order items
         items_query = select(
             Product.name,
-            OrderItem.quantity
+            OrderItem.qty
         ).join(Product).where(OrderItem.order_id == row.id)
 
         items_result = db.execute(items_query).fetchall()
