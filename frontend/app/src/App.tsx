@@ -11,6 +11,7 @@ import UsersList from './routes/users/UsersList'
 import ChurchesList from './routes/churches/ChurchesList'
 import CategoriesList from './routes/categories/CategoriesList'
 import Reports from './routes/reports/Reports'
+import AuditLogs from './routes/audit/AuditLogs'
 import Layout from './components/AppLayout'
 import ResetConfirm from './routes/auth/ResetConfirm'
 import ResetInit from './routes/auth/ResetInit'
@@ -39,6 +40,7 @@ function Nav() {
             <Link to="/categories" className="truncate">Categorias</Link>
             <Link to="/users" className="truncate">Usuários</Link>
             <Link to="/churches" className="truncate">Igrejas</Link>
+            <Link to="/audit" className="truncate">Auditoria</Link>
           </>}
         </div>
         <div className="flex gap-2 items-center">
@@ -70,6 +72,7 @@ export default function App() {
         <Route path="/categories" element={<Protected roles={["ADM"]}><Layout><CategoriesList /></Layout></Protected>} />
         <Route path="/users" element={<Protected roles={["ADM"]}><Layout><UsersList /></Layout></Protected>} />
         <Route path="/churches" element={<Protected roles={["ADM"]}><Layout><ChurchesList /></Layout></Protected>} />
+        <Route path="/audit" element={<Protected roles={["ADM"]}><Layout><AuditLogs /></Layout></Protected>} />
         <Route path="/admin/reset" element={<Protected roles={["ADM"]}><Layout><ResetInit /></Layout></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

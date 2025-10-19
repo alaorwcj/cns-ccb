@@ -72,6 +72,16 @@ function Icon({ name }: { name: string }) {
           <path d="M7 3h10" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )
+    case 'audit':
+      return (
+        <svg className="h-5 w-5 mr-2 text-orange-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M9 12l2 2 4-4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M21 12c-1 0-3-1-3-3s2-3 3-3 3 1 3 3-2 3-3 3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M12 3v6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M12 15v6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )
     default:
       return <span className="h-5 w-5 mr-2 inline-block" />
   }
@@ -107,6 +117,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       { to: "/categories", icon: "categories", label: "Categorias", roles: ["ADM"] },
       { to: "/users", icon: "users", label: "Usuários", roles: ["ADM"] },
       { to: "/churches", icon: "church", label: "Igrejas", roles: ["ADM"] },
+      { to: "/audit", icon: "audit", label: "Auditoria", roles: ["ADM"] },
     ];
 
     if (userRole === "ADM") {
