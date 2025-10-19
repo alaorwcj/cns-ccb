@@ -132,7 +132,6 @@ class UserProductCatalogItem(BaseModel):
     name: str
     category_name: str
     stock_quantity: int
-    description: Optional[str]
 
 class UserProductCatalog(BaseModel):
     products: List[UserProductCatalogItem]

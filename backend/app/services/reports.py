@@ -422,8 +422,7 @@ def get_user_product_catalog(db: Session) -> UserProductCatalog:
         Product.id,
         Product.name,
         Category.name.label('category_name'),
-        Product.stock_qty,
-        Product.description
+        Product.stock_qty
     ).select_from(Product).outerjoin(Category, Product.category_id == Category.id).where(Product.stock_qty > 0).order_by(Category.name, Product.name)
 
     result = db.execute(query).fetchall()
@@ -433,8 +432,7 @@ def get_user_product_catalog(db: Session) -> UserProductCatalog:
             product_id=row.id,
             name=row.name,
             category_name=row.category_name or 'Sem categoria',
-            stock_quantity=row.stock_qty or 0,
-            description=row.description
+            stock_quantity=row.stock_qty or 0
         ) for row in result
     ]
 

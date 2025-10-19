@@ -7,7 +7,6 @@ interface ProductCatalogData {
     name: string
     category_name: string
     stock_quantity: number
-    description: string | null
   }>
   total_products: number
 }
@@ -38,8 +37,7 @@ export default function ProductCatalog(): JSX.Element {
   // Filtrar produtos
   const filteredProducts = data?.products.filter(product => {
     const matchesCategory = selectedCategory === 'all' || product.category_name === selectedCategory
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesCategory && matchesSearch
   }) || []
 
@@ -132,10 +130,6 @@ export default function ProductCatalog(): JSX.Element {
                     {product.category_name}
                   </span>
                 </div>
-
-                {product.description && (
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">{product.description}</p>
-                )}
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
