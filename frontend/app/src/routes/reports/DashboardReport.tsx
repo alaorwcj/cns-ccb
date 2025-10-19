@@ -122,7 +122,7 @@ export default function DashboardReport(): JSX.Element {
 
         <div className="bg-indigo-50 p-6 rounded-lg">
           <div className="flex items-center">
-            <div className="text-2xl mr-3">⛪</div>
+            <img src="/casa.png" alt="Igrejas" className="h-8 w-8 mr-3 object-contain" />
             <div>
               <div className="text-2xl font-bold text-indigo-600">{data.kpis.active_churches}</div>
               <div className="text-sm text-gray-600">Igrejas Ativas</div>

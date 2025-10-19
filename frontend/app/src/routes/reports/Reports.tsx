@@ -86,7 +86,11 @@ export default function Reports(): JSX.Element {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <span className="mr-2">{report.icon}</span>
+                {report.icon === '⛪' ? (
+                  <img src="/casa.png" alt="Igrejas" className="h-4 w-4 mr-2 object-contain inline" />
+                ) : (
+                  <span className="mr-2">{report.icon}</span>
+                )}
                 {report.name}
               </button>
             ))}
