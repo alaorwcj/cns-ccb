@@ -5,7 +5,7 @@ interface OrderData {
   summary: {
     total_orders: number
     pending_orders: number
-    completed_orders: number
+    delivered_orders: number
     total_quantity: number
     period_start: string | null
     period_end: string | null
@@ -158,8 +158,9 @@ export default function OrdersReport(): JSX.Element {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Todos</option>
-              <option value="PENDING">Pendente</option>
-              <option value="COMPLETED">Concluído</option>
+              <option value="PENDENTE">Pendente</option>
+              <option value="APROVADO">Aprovado</option>
+              <option value="ENTREGUE">Entregue</option>
             </select>
           </div>
           <div className="flex items-end space-x-2">
@@ -190,8 +191,8 @@ export default function OrdersReport(): JSX.Element {
           <div className="text-sm text-gray-600">Pedidos Pendentes</div>
         </div>
         <div className="bg-green-50 p-4 rounded-lg text-center">
-          <div className="text-2xl font-bold text-green-600">{data.summary.completed_orders}</div>
-          <div className="text-sm text-gray-600">Pedidos Concluídos</div>
+          <div className="text-2xl font-bold text-green-600">{data.summary.delivered_orders}</div>
+          <div className="text-sm text-gray-600">Pedidos Entregues</div>
         </div>
         <div className="bg-purple-50 p-4 rounded-lg text-center">
           <div className="text-2xl font-bold text-purple-600">{data.summary.total_quantity}</div>
@@ -226,9 +227,13 @@ export default function OrdersReport(): JSX.Element {
                     </td>
                     <td className="px-4 py-2 text-sm">
                       <span className={`px-2 py-1 rounded-full text-xs ${
-                        order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        order.status === 'ENTREGUE' ? 'bg-green-100 text-green-800' : 
+                        order.status === 'APROVADO' ? 'bg-blue-100 text-blue-800' :
+                        'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {order.status === 'COMPLETED' ? 'Concluído' : 'Pendente'}
+                        {order.status === 'ENTREGUE' ? 'Entregue' : 
+                         order.status === 'APROVADO' ? 'Aprovado' :
+                         'Pendente'}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-sm text-gray-900 font-medium">{order.total_quantity}</td>

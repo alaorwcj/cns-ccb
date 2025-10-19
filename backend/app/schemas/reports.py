@@ -40,7 +40,7 @@ class OrderReportItem(BaseModel):
 class OrderSummary(BaseModel):
     total_orders: int
     pending_orders: int
-    completed_orders: int
+    delivered_orders: int
     total_quantity: int
     period_start: Optional[datetime]
     period_end: Optional[datetime]

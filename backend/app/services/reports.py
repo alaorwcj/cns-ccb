@@ -141,8 +141,8 @@ def get_order_report(
     # Summary
     summary_query = select(
         func.count(Order.id).label('total_orders'),
-        func.sum(case((Order.status == 'PENDING', 1), else_=0)).label('pending_orders'),
-        func.sum(case((Order.status == 'COMPLETED', 1), else_=0)).label('completed_orders'),
+        func.sum(case((Order.status == 'PENDENTE', 1), else_=0)).label('pending_orders'),
+        func.sum(case((Order.status == 'ENTREGUE', 1), else_=0)).label('delivered_orders'),
         func.sum(OrderItem.quantity).label('total_quantity')
     ).outerjoin(OrderItem)
 
@@ -154,7 +154,7 @@ def get_order_report(
     summary = OrderSummary(
         total_orders=summary_result.total_orders or 0,
         pending_orders=summary_result.pending_orders or 0,
-        completed_orders=summary_result.completed_orders or 0,
+        completed_orders=summary_result.delivered_orders or 0,
         total_quantity=summary_result.total_quantity or 0,
         period_start=start_date,
         period_end=end_date
@@ -298,7 +298,7 @@ def get_dashboard_report(db: Session) -> DashboardReport:
     total_orders_month = db.scalar(select(func.count(Order.id)).where(
         Order.created_at >= datetime.utcnow() - timedelta(days=30)
     ))
-    pending_orders = db.scalar(select(func.count(Order.id)).where(Order.status == 'PENDING'))
+    pending_orders = db.scalar(select(func.count(Order.id)).where(Order.status == 'PENDENTE'))
     low_stock_products = db.scalar(select(func.count(Product.id)).where(
         and_(Product.min_stock.isnot(None), Product.stock_qty <= Product.min_stock)
     ))
@@ -387,7 +387,7 @@ def get_user_orders_report(db: Session, church_id: int) -> UserOrderReport:
     pending_count = 0
 
     for row in result:
-        if row.status == 'PENDING':
+        if row.status == 'PENDENTE':
             pending_count += 1
 
         # Get order items

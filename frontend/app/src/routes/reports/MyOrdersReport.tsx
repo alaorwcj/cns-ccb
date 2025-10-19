@@ -112,9 +112,13 @@ export default function MyOrdersReport(): JSX.Element {
                     Pedido #{order.order_id}
                   </div>
                   <span className={`px-3 py-1 rounded-full text-sm ${
-                    order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    order.status === 'ENTREGUE' ? 'bg-green-100 text-green-800' : 
+                    order.status === 'APROVADO' ? 'bg-blue-100 text-blue-800' :
+                    'bg-yellow-100 text-yellow-800'
                   }`}>
-                    {order.status === 'COMPLETED' ? 'Concluído' : 'Pendente'}
+                    {order.status === 'ENTREGUE' ? 'Entregue' : 
+                     order.status === 'APROVADO' ? 'Aprovado' :
+                     'Pendente'}
                   </span>
                 </div>
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
