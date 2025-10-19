@@ -44,16 +44,9 @@ Este documento detalha o plano de migração econômica do sistema CCB CNS (Sist
 │           ▼                       ▼                        │
 │  ┌─────────────────┐    ┌─────────────────┐                 │
 │  │   Frontend      │    │     Backend     │                 │
-│  │   (Static)      │    │   (FastAPI)     │                 │
-│  │   Port: 3000    │    │   Port: 8000    │                 │
+│  │   (Port 5173)   │    │   (Port 8000)   │                 │
 │  └─────────────────┘    └─────────────────┘                 │
 └─────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│   CloudFront    │
-│   (CDN Global)  │
-└─────────────────┘
 ```
 
 ---
@@ -81,8 +74,6 @@ Baseado na análise do código e docker-compose atual:
 - **Backup**: Snapshots EBS semanais
 
 #### Outros Serviços
-- **CloudFront**: CDN para frontend estático - $5-10/mês
-- **S3**: Storage para assets - $0.02/mês
 - **Route 53**: DNS - $0.50/mês
 - **Certificate Manager**: SSL gratuito
 
@@ -349,11 +340,11 @@ sudo systemctl reload nginx
 
 #### 4.3 Deploy da Aplicação
 ```bash
-# Clonar repositório na EC2
+# Clonar o repositório do GitHub (branch main/master)
 git clone https://github.com/alaorwcj/cns-ccb.git
 cd cns-ccb
 
-# Configurar variáveis de ambiente do backend
+# Configurar variáveis de ambiente do backend (baseado no .env atual)
 cp backend/.env.example backend/.env
 vi backend/.env
 # DATABASE_URL=postgresql+psycopg2://ccb:ccb_password@localhost:5432/ccb
@@ -365,114 +356,32 @@ vi backend/.env
 # ADMIN_EMAIL=admin@example.com
 # ADMIN_PASSWORD=changeme
 
-# Build e start dos containers
-docker-compose -f docker-compose.prod.yml up -d --build
+# Usar o docker-compose existente da pasta infra/ (mais fiel ao atual)
+cd infra
+
+# Build e start dos containers (mantendo estrutura atual)
+docker-compose up -d --build
 
 # Aguardar healthcheck do banco
 sleep 30
 
 # Verificar se está rodando
-docker-compose -f docker-compose.prod.yml ps
-docker-compose -f docker-compose.prod.yml logs
+docker-compose ps
+docker-compose logs
 
 # Verificar se a API está respondendo
 curl -X GET "http://localhost:8000/health"
 curl -X GET "http://localhost:8000/"
 ```
 
-### Fase 5: Configuração de Frontend Externo (1-2 dias)
+### Fase 5: Configuração de DNS e SSL (1 dia)
 
-#### 5.1 Build do Frontend para Produção
-```bash
-# Build do frontend
-cd frontend/app
-npm install
-npm run build
-
-# Criar bucket S3 para assets estáticos
-aws s3 mb s3://ccb-assets-prod
-
-# Upload do build
-aws s3 sync dist/ s3://ccb-assets-prod --delete
-
-# Configurar bucket como público
-aws s3api put-bucket-policy --bucket ccb-assets-prod --policy '{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "PublicReadGetObject",
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::ccb-assets-prod/*"
-    }
-  ]
-}'
-```
-
-#### 5.2 Configurar CloudFront
-```bash
-# Criar distribuição CloudFront
-aws cloudfront create-distribution --distribution-config '{
-  "CallerReference": "ccb-frontend-'$(date +%s)'",
-  "Comment": "CCB Frontend Production",
-  "DefaultRootObject": "index.html",
-  "Origins": {
-    "Quantity": 1,
-    "Items": [
-      {
-        "Id": "ccb-s3-origin",
-        "DomainName": "ccb-assets-prod.s3.amazonaws.com",
-        "S3OriginConfig": {
-          "OriginAccessIdentity": ""
-        }
-      }
-    ]
-  },
-  "DefaultCacheBehavior": {
-    "TargetOriginId": "ccb-s3-origin",
-    "ViewerProtocolPolicy": "redirect-to-https",
-    "MinTTL": 0,
-    "DefaultTTL": 86400,
-    "MaxTTL": 31536000,
-    "ForwardedValues": {
-      "QueryString": false,
-      "Cookies": {
-        "Forward": "none"
-      }
-    }
-  },
-  "Enabled": true,
-  "Aliases": {
-    "Quantity": 1,
-    "Items": ["ccb.suaigreja.com"]
-  }
-}'
-```
-
-### Fase 6: Configuração de DNS e SSL (1 dia)
-
-#### 6.1 Configurar Route 53
+#### 5.1 Configurar Route 53
 ```bash
 # Criar hosted zone
 aws route53 create-hosted-zone --name suaigreja.com --caller-reference $(date +%s)
 
-# Criar registro A para a EC2
-aws route53 change-resource-record-sets \
-  --hosted-zone-id ZXXXXXXXXXXXXX \
-  --change-batch '{
-    "Changes": [{
-      "Action": "CREATE",
-      "ResourceRecordSet": {
-        "Name": "api.ccb.suaigreja.com",
-        "Type": "A",
-        "TTL": 300,
-        "ResourceRecords": [{"Value": "YOUR_ELASTIC_IP"}]
-      }
-    }]
-  }'
-
-# Criar registro CNAME para CloudFront
+# Criar registro A para a EC2 (aponta diretamente para a instância)
 aws route53 change-resource-record-sets \
   --hosted-zone-id ZXXXXXXXXXXXXX \
   --change-batch '{
@@ -480,56 +389,52 @@ aws route53 change-resource-record-sets \
       "Action": "CREATE",
       "ResourceRecordSet": {
         "Name": "ccb.suaigreja.com",
-        "Type": "CNAME",
+        "Type": "A",
         "TTL": 300,
-        "ResourceRecords": [{"Value": "CLOUDFRONT_DOMAIN"}]
+        "ResourceRecords": [{"Value": "YOUR_ELASTIC_IP"}]
       }
     }]
   }'
 ```
 
-#### 6.2 Configurar SSL com Let's Encrypt
+#### 5.2 Configurar SSL com Let's Encrypt
 ```bash
 # Instalar Certbot
 sudo yum install -y certbot python3-certbot-nginx
 
-# Obter certificado SSL
-sudo certbot --nginx -d ccb.suaigreja.com -d api.ccb.suaigreja.com
+# Obter certificado SSL para o domínio principal
+sudo certbot --nginx -d ccb.suaigreja.com
 
 # Configurar renovação automática
 sudo crontab -e
 # Adicionar: 0 12 * * * /usr/bin/certbot renew --quiet
 ```
 
-### Fase 7: Testes e Go-Live (2-3 dias)
+### Fase 6: Testes e Go-Live (2-3 dias)
 
-#### 7.1 Testes Funcionais
+#### 6.1 Testes Funcionais
 ```bash
-# Testar API endpoints específicos do CCB CNS
-curl -X GET "http://YOUR_ELASTIC_IP/api/health"
-curl -X GET "http://YOUR_ELASTIC_IP/api/"  # Root endpoint
+# Testar aplicação completa via domínio
+curl -X GET "https://ccb.suaigreja.com/api/health"
+curl -X GET "https://ccb.suaigreja.com/api/"  # Root endpoint
 
 # Testar autenticação
-curl -X POST "http://YOUR_ELASTIC_IP/api/auth/login" \
+curl -X POST "https://ccb.suaigreja.com/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"username":"admin@example.com","password":"changeme"}'
 
 # Testar outros endpoints principais
-curl -X GET "http://YOUR_ELASTIC_IP/api/users/"
-curl -X GET "http://YOUR_ELASTIC_IP/api/products/"
-curl -X GET "http://YOUR_ELASTIC_IP/api/churches/"
-curl -X GET "http://YOUR_ELASTIC_IP/api/orders/"
-curl -X GET "http://YOUR_ELASTIC_IP/api/reports/"
+curl -X GET "https://ccb.suaigreja.com/api/users/"
+curl -X GET "https://ccb.suaigreja.com/api/products/"
+curl -X GET "https://ccb.suaigreja.com/api/churches/"
+curl -X GET "https://ccb.suaigreja.com/api/orders/"
+curl -X GET "https://ccb.suaigreja.com/api/reports/"
 
-# Testar frontend via IP
-curl -I "http://YOUR_ELASTIC_IP"
-
-# Testar HTTPS após configurar SSL
-curl -I "https://api.ccb.suaigreja.com/api/health"
+# Testar frontend (deve retornar HTML)
 curl -I "https://ccb.suaigreja.com"
 ```
 
-#### 7.2 Configurar Monitoramento Básico
+#### 6.2 Configurar Monitoramento Básico
 ```bash
 # Instalar CloudWatch agent
 sudo yum install -y amazon-cloudwatch-agent
@@ -552,10 +457,10 @@ aws cloudwatch put-metric-alarm \
   --dimensions Name=InstanceId,Value=i-xxxxx
 ```
 
-#### 7.3 Backup Automático
+#### 6.3 Backup Automático e Sincronização
 ```bash
-# Criar script de backup
-cat > /home/ec2-user/backup.sh << 'EOF'
+# Criar script de backup e manutenção
+cat > /home/ec2-user/maintenance.sh << 'EOF'
 #!/bin/bash
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="/home/ec2-user/backup_ccb_$DATE.sql"
@@ -571,13 +476,23 @@ aws s3 cp ${BACKUP_FILE}.gz s3://ccb-backups/
 
 # Limpar backups antigos (manter últimos 7 dias)
 find /home/ec2-user -name "backup_ccb_*.sql.gz" -mtime +7 -delete
+
+# Sincronizar com GitHub (sempre manter atualizado)
+cd /home/ec2-user/ccb
+git fetch origin
+git reset --hard origin/main
+
+# Restart dos containers se houve mudanças
+docker-compose -f infra/docker-compose.yml up -d --build
+
+echo "Backup e sincronização concluídos: $DATE"
 EOF
 
-chmod +x /home/ec2-user/backup.sh
+chmod +x /home/ec2-user/maintenance.sh
 
-# Agendar backup diário
+# Agendar manutenção diária (backup + sync com GitHub)
 crontab -e
-# Adicionar: 0 2 * * * /home/ec2-user/backup.sh
+# Adicionar: 0 2 * * * /home/ec2-user/maintenance.sh
 ```
 
 ---
@@ -590,17 +505,15 @@ crontab -e
 |---------|-------------|--------------|
 | **EC2 t3.medium** | 2 vCPU, 4GB RAM, 50GB SSD | $30-40 |
 | **Elastic IP** | 1 IP fixo (se usado 24/7) | $0 |
-| **CloudFront** | 10GB transfer | $5-10 |
-| **S3** | 1GB storage + backups | $0.10 |
 | **Route 53** | 1 hosted zone | $0.50 |
 | **CloudWatch** | Métricas básicas | $1-2 |
 
-**Total Estimado**: **$37-53/mês** ⭐
+**Total Estimado**: **$32-43/mês** ⭐
 
 ### Comparação com Plano Anterior
 - **Plano Original**: $108-175/mês
-- **Plano Econômico**: $37-53/mês
-- **Economia**: **65-70% de redução** 💰
+- **Plano Simplificado**: **$32-43/mês**
+- **Economia**: **75-80% de redução** 💰
 
 ### Custos de Migração (One-time)
 - **EC2 Setup**: $50-100
@@ -684,20 +597,27 @@ sudo firewall-cmd --reload
 Se problemas críticos forem identificados:
 
 ```bash
-# 1. Parar containers na EC2
-docker-compose -f docker-compose.prod.yml down
+# 1. Parar containers
+cd /home/ec2-user/ccb/infra
+docker-compose down
 
 # 2. Restaurar backup do banco
-psql -h localhost -U ccb -d ccb < backup_ccb_20251019.sql
+sudo -u postgres psql -d ccb < /home/ec2-user/backup_ccb_20251019.sql
 
-# 3. Restart dos containers
-docker-compose -f docker-compose.prod.yml up -d
+# 3. Reset para versão estável do GitHub
+cd /home/ec2-user/ccb
+git reset --hard origin/main
+git clean -fd  # Remover arquivos não rastreados
 
-# 4. Se necessário, voltar DNS para IP antigo
+# 4. Restart dos containers
+cd infra
+docker-compose up -d --build
+
+# 5. Se necessário, voltar DNS para IP antigo
 # (seu servidor atual continua funcionando)
 ```
 
-### Tempo Estimado de Rollback: 30-60 minutos
+### Tempo Estimado de Rollback: 15-30 minutos
 
 ---
 
@@ -709,12 +629,11 @@ docker-compose -f docker-compose.prod.yml up -d
 | **Fase 2: EC2 Setup** | 1-2 dias | $30-40 | Média |
 | **Fase 3: Banco** | 1 dia | $0 | Baixa |
 | **Fase 4: Aplicação** | 2-3 dias | $0 | Média |
-| **Fase 5: Frontend** | 1-2 dias | $5-10 | Baixa |
-| **Fase 6: DNS/SSL** | 1 dia | $0 | Baixa |
-| **Fase 7: Testes** | 2-3 dias | $0 | Baixa |
+| **Fase 5: DNS/SSL** | 1 dia | $0 | Baixa |
+| **Fase 6: Testes** | 2-3 dias | $0 | Baixa |
 
-**Duração Total Estimada**: **11-18 dias**
-**Custo Total**: **$35-50/mês** (vs $108-175 do plano anterior)
+**Duração Total Estimada**: **10-16 dias**
+**Custo Total**: **$30-40/mês** (vs $108-175 do plano anterior)
 
 ---
 
@@ -745,6 +664,13 @@ docker-compose -f docker-compose.prod.yml up -d
 - **Frontend Build**: Vite roda em modo dev (porta 5173) vs produção
 - **Volumes**: Dados PostgreSQL em volume nomeado para persistência
 - **Environment**: Copiar `.env.example` e ajustar valores de produção
+- **Git Sync**: Projeto sempre sincronizado com GitHub branch main
+
+### Sincronização com GitHub
+- **Vantagem**: Deploy sempre atualizado com o código mais recente
+- **Comando**: `git reset --hard origin/main` para atualizar
+- **Automação**: Script diário de backup inclui sync com GitHub
+- **Rollback**: Fácil voltar para commits específicos se necessário
 
 ### ✅ Prós
 - **Custo muito menor**: 65-70% de economia
@@ -776,9 +702,10 @@ docker-compose -f docker-compose.prod.yml up -d
 - **Manual**: Snapshots sob demanda
 
 ### Manutenção Regular
-- **Semanal**: Verificar logs por erros
-- **Mensal**: Atualizar pacotes do sistema
-- **Trimestral**: Testar restore de backup
+- **Diária**: Backup automático + sincronização com GitHub
+- **Semanal**: Verificar logs por erros, limpar containers não utilizados
+- **Mensal**: Atualizar pacotes do sistema, verificar espaço em disco
+- **Trimestral**: Testar restore de backup, atualizar Docker images
 
 ---
 
@@ -1352,16 +1279,16 @@ aws ecs update-service \
 
 ## 🎯 Próximos Passos
 
-1. **Revisar o plano** no `MIGRATE.md` - adaptado para a arquitetura real do projeto
+1. **Revisar o plano** no `MIGRATE.md` - versão simplificada sem CloudFront
 2. **Verificar dependências** no `backend/requirements.txt` e `frontend/app/package.json`
 3. **Testar docker-compose** localmente: `cd infra && docker-compose up -d --build`
-4. **Aprovar orçamento** ($35-50/mês vs $108-175 do plano anterior)
+4. **Aprovar orçamento** ($30-40/mês vs $108-175 do plano anterior)
 5. **Configurar conta AWS** e usuário IAM
 6. **Provisionar EC2 t3.medium** com Docker e Docker Compose
-7. **Testar migração** em ambiente de staging primeiro
-8. **Go-Live**: Migrar dados e configurar produção
+7. **Clonar projeto**: `git clone https://github.com/alaorwcj/cns-ccb.git`
+8. **Configurar ambiente** e testar migração
+9. **Go-Live**: Migrar dados e configurar produção com sync automático
 
 ---
 
-*Este plano foi ajustado especificamente para o repositório https://github.com/alaorwcj/cns-ccb.git, considerando a arquitetura FastAPI + React + PostgreSQL atual.*</content>
-<parameter name="filePath">/root/app/cns-ccb/MIGRATE.md
+*Este plano foi ajustado para usar git clone do repositório https://github.com/alaorwcj/cns-ccb.git, mantendo sincronização automática com a branch main e removendo CloudFront para simplificar a arquitetura.*</content>
