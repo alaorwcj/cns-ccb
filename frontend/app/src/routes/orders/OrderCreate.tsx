@@ -32,7 +32,7 @@ export default function OrderCreate() {
           api.get('/categories'),
           api.get('/products?limit=100'),
           api.get('/churches'),
-          api.get('/orders?page=1&limit=100'), // Get more orders to find pending ones
+          api.get('/orders?page=1&limit=50'), // Get more orders to find pending ones
         ])
         setCategories(cats.data)
         setProducts(prods.data.data || [])

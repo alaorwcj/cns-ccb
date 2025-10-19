@@ -7,6 +7,7 @@ from sqlalchemy import select, func
 
 from app.models.order import Order, OrderItem, OrderStatus
 from app.models.product import Product
+from app.models.church import Church
 from app.models.user import User
 from app.services.stock import add_movement
 from app.models.stock_movement import MovementType
@@ -34,8 +35,16 @@ def create_order(
     church_id: int,
     items: List[Tuple[int, int]],
 ) -> Order:
+    if not church_id or church_id <= 0:
+        raise ValueError("Invalid church")
+    
     if not items:
         raise ValueError("Order must have items")
+
+    # Validate church exists
+    church = db.get(Church, church_id)
+    if not church:
+        raise ValueError("Invalid church")
 
     prods = {p.id: p for p in db.scalars(select(Product).where(Product.id.in_([pid for pid, _ in items])))}
     order_items: List[OrderItem] = []
