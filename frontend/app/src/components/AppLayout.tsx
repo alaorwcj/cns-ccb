@@ -92,6 +92,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { role, clear } = useAuth()
   const [open, setOpen] = useState(false);
 
+  // Define menu permissions based on user role
+  const getMenuItems = (userRole: string | null) => {
+    const baseItems = [
+      { to: "/", icon: "dashboard", label: "Dashboard", roles: ["ADM", "USUARIO"] },
+      { to: "/orders", icon: "orders", label: "Pedidos", roles: ["ADM", "USUARIO"] },
+      { to: "/orders/new", icon: "new", label: "Fazer pedido", roles: ["ADM", "USUARIO"] },
+      { to: "/stock", icon: "stock", label: "Movimentações", roles: ["ADM", "USUARIO"] },
+      { to: "/reports", icon: "reports", label: "Relatórios", roles: ["ADM", "USUARIO"] },
+    ];
+
+    const adminItems = [
+      { to: "/products", icon: "products", label: "Produtos", roles: ["ADM"] },
+      { to: "/categories", icon: "categories", label: "Categorias", roles: ["ADM"] },
+      { to: "/users", icon: "users", label: "Usuários", roles: ["ADM"] },
+      { to: "/churches", icon: "church", label: "Igrejas", roles: ["ADM"] },
+    ];
+
+    if (userRole === "ADM") {
+      return [...baseItems, ...adminItems];
+    }
+
+    // For USUARIO role, only show base items
+    return baseItems.filter(item => item.roles.includes("USUARIO"));
+  };
+
+  const menuItems = getMenuItems(role);
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
@@ -111,15 +138,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <nav className="p-3 flex flex-col gap-1">
-            <NavLink to="/"><Icon name="dashboard"/> Dashboard</NavLink>
-            <NavLink to="/orders"><Icon name="orders"/> Pedidos</NavLink>
-            <NavLink to="/orders/new"><Icon name="new"/> Fazer pedido</NavLink>
-            <NavLink to="/stock"><Icon name="stock"/> Movimentações</NavLink>
-            <NavLink to="/reports"><Icon name="reports"/> Relatórios</NavLink>
-            <NavLink to="/products"><Icon name="products"/> Produtos</NavLink>
-            <NavLink to="/categories"><Icon name="categories"/> Categorias</NavLink>
-            {role === 'ADM' && <NavLink to="/users"><Icon name="users"/> Usuários</NavLink>}
-            <NavLink to="/churches"><Icon name="church"/> Igrejas</NavLink>
+            {menuItems.map((item) => (
+              <NavLink key={item.to} to={item.to}>
+                <Icon name={item.icon} /> {item.label}
+              </NavLink>
+            ))}
           </nav>
           <div className="p-3 border-t text-xs text-gray-600">
             <div className="flex items-center justify-between gap-2">
@@ -143,15 +166,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
               <div className="flex flex-col gap-1">
-                <NavLink to="/"><Icon name="dashboard"/> Dashboard</NavLink>
-                <NavLink to="/orders"><Icon name="orders"/> Pedidos</NavLink>
-                <NavLink to="/orders/new"><Icon name="new"/> Fazer pedido</NavLink>
-                <NavLink to="/stock"><Icon name="stock"/> Movimentações</NavLink>
-                <NavLink to="/reports"><Icon name="reports"/> Relatórios</NavLink>
-                <NavLink to="/products"><Icon name="products"/> Produtos</NavLink>
-                <NavLink to="/categories"><Icon name="categories"/> Categorias</NavLink>
-                {role === 'ADM' && <NavLink to="/users"><Icon name="users"/> Usuários</NavLink>}
-                <NavLink to="/churches"><Icon name="church"/> Igrejas</NavLink>
+                {menuItems.map((item) => (
+                  <NavLink key={item.to} to={item.to}>
+                    <Icon name={item.icon} /> {item.label}
+                  </NavLink>
+                ))}
               </div>
               <div className="p-3 border-t text-xs text-gray-600">
                 <div className="flex items-center justify-between gap-2">
