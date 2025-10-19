@@ -21,34 +21,55 @@ export default function Movements(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [filterType, setFilterType] = useState<string>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalMovements, setTotalMovements] = useState(0)
+  const pageSize = 10
+
+  const load = async (page: number = 1) => {
+    console.log('Loading movements for page:', page)
+    setLoading(true)
+    setError(null)
+    try {
+      const r = await api.get(`/stock/movements?page=${page}&limit=${pageSize}`)
+      console.log('API response:', r.data)
+      const movementsData = Array.isArray(r.data.data) ? r.data.data : []
+      setMovs(movementsData)
+      setTotalMovements(r.data.total || 0)
+      setTotalPages(Math.ceil((r.data.total || 0) / pageSize))
+      setCurrentPage(page)
+    } catch (err: any) {
+      console.error('Error loading movements:', err)
+      setMovs([])
+      setError(err?.response?.data?.detail || 'Erro ao carregar')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     let mounted = true
-    const load = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const r = await api.get('/stock/movements')
-        if (!mounted) return
-        setMovs(r.data || [])
-      } catch (err: any) {
-        if (!mounted) return
-        setError(err?.response?.data?.detail || 'Erro ao carregar')
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    }
-    load()
+    load(1)
     return () => { mounted = false }
   }, [])
 
-  const filtered = filterType === 'all' ? movs : movs.filter((m: any) => m.type === filterType)
+  const filtered = Array.isArray(movs) && filterType === 'all' ? movs : (Array.isArray(movs) ? movs.filter((m: any) => m.type === filterType) : [])
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      load(page)
+    }
+  }
+
+  const handleTypeFilterChange = (type: string) => {
+    setFilterType(type)
+  }
 
   if (loading) return <div>Carregando...</div>
 
   return (
     <div className="min-w-0">
-      {showForm && <StockMovementForm onClose={() => setShowForm(false)} onSave={() => { setShowForm(false) }} />}
+      {showForm && <StockMovementForm onClose={() => setShowForm(false)} onSave={() => { setShowForm(false); load(currentPage) }} />}
 
       <div className="mb-4 flex justify-between items-center">
         <h2 className="font-semibold">Movimentações de Estoque</h2>
@@ -81,6 +102,31 @@ export default function Movements(): JSX.Element {
           </div>
         ))}
       </div>
+
+      {/* Controles de paginação */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex justify-center items-center gap-2">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Anterior
+          </button>
+
+          <span className="text-sm">
+            Página {currentPage} de {totalPages} ({totalMovements} total)
+          </span>
+
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Próximo
+          </button>
+        </div>
+      )}
     </div>
   )
 }

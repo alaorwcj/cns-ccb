@@ -23,3 +23,13 @@ class StockMovementRead(StockMovementBase):
 
     class Config:
         from_attributes = True
+
+
+class StockMovementListResponse(BaseModel):
+    data: List[StockMovementRead]
+    total: int
+    page: int
+    limit: int
+
+    class Config:
+        from_attributes = True

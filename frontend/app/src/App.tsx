@@ -62,7 +62,7 @@ export default function App() {
         <Route path="/orders" element={<Protected><Layout><OrdersList /></Layout></Protected>} />
         <Route path="/orders/new" element={<Protected><Layout><OrderCreate /></Layout></Protected>} />
         <Route path="/orders/:id/edit" element={<Protected><Layout><OrderEdit /></Layout></Protected>} />
-        <Route path="/stock" element={<Protected roles={["ADM"]}><Layout><Movements /></Layout></Protected>} />
+        <Route path="/stock" element={<Protected><Layout><Movements /></Layout></Protected>} />
         <Route path="/products" element={<Protected roles={["ADM"]}><Layout><ProductsList /></Layout></Protected>} />
         <Route path="/categories" element={<Protected roles={["ADM"]}><Layout><CategoriesList /></Layout></Protected>} />
         <Route path="/users" element={<Protected roles={["ADM"]}><Layout><UsersList /></Layout></Protected>} />

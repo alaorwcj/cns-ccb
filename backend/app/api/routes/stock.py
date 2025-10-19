@@ -5,22 +5,27 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import db_dep, require_role
 from app.models.stock_movement import MovementType
-from app.schemas.stock import StockMovementCreate, StockMovementRead
+from app.schemas.stock import StockMovementCreate, StockMovementRead, StockMovementListResponse
 from app.services.stock import add_movement, list_movements
 
 router = APIRouter(prefix="/stock", tags=["stock"]) 
 
 
-@router.get("/movements", response_model=List[StockMovementRead])
+@router.get("/movements", response_model=StockMovementListResponse)
 def get_movements(
     db: Session = Depends(db_dep),
     product_id: Optional[int] = None,
     type: Optional[MovementType] = None,
     start: Optional[datetime] = Query(default=None),
     end: Optional[datetime] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=50),
     _adm=Depends(require_role("ADM")),
 ):
-    return list_movements(db, product_id=product_id, type=type, start=start, end=end)
+    from app.services.stock import count_movements
+    movements = list_movements(db, product_id=product_id, type=type, start=start, end=end, page=page, limit=limit)
+    total = count_movements(db, product_id=product_id, type=type, start=start, end=end)
+    return StockMovementListResponse(data=movements, total=total, page=page, limit=limit)
 
 
 @router.post("/movements", response_model=StockMovementRead, status_code=status.HTTP_201_CREATED)

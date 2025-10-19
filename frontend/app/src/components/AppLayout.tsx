@@ -52,11 +52,7 @@ function Icon({ name }: { name: string }) {
       )
     case 'church':
       return (
-        <svg className="h-5 w-5 mr-2 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M12 2v6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M5 21h14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M19 10.5L12 7 5 10.5V21h14v-10.5z" strokeWidth="1.5" />
-        </svg>
+        <img src="/casa.png" alt="Igrejas" className="h-5 w-5 mr-2 object-contain" />
       )
     default:
       return <span className="h-5 w-5 mr-2 inline-block" />

@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 
 from app.models.product import Product
 from app.models.stock_movement import StockMovement, MovementType
@@ -54,6 +54,8 @@ def list_movements(
     type: Optional[MovementType] = None,
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
+    page: int = 1,
+    limit: int = 10,
 ) -> List[StockMovement]:
     stmt = select(StockMovement)
     if product_id is not None:
@@ -65,4 +67,25 @@ def list_movements(
     if end is not None:
         stmt = stmt.where(StockMovement.created_at <= end)
     stmt = stmt.order_by(StockMovement.created_at.desc())
+    stmt = stmt.offset((page - 1) * limit).limit(limit)
     return list(db.scalars(stmt))
+
+
+def count_movements(
+    db: Session,
+    *,
+    product_id: Optional[int] = None,
+    type: Optional[MovementType] = None,
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+) -> int:
+    stmt = select(func.count()).select_from(StockMovement)
+    if product_id is not None:
+        stmt = stmt.where(StockMovement.product_id == product_id)
+    if type is not None:
+        stmt = stmt.where(StockMovement.type == type)
+    if start is not None:
+        stmt = stmt.where(StockMovement.created_at >= start)
+    if end is not None:
+        stmt = stmt.where(StockMovement.created_at <= end)
+    return db.scalar(stmt) or 0
