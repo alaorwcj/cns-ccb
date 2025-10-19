@@ -54,6 +54,15 @@ function Icon({ name }: { name: string }) {
       return (
         <img src="/casa.png" alt="Igrejas" className="h-5 w-5 mr-2 object-contain" />
       )
+    case 'reports':
+      return (
+        <svg className="h-5 w-5 mr-2 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M9 19v-6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M15 19v-6a2 2 0 0 0-2-2H13a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3 7h18" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M7 3h10" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )
     default:
       return <span className="h-5 w-5 mr-2 inline-block" />
   }
@@ -97,6 +106,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <NavLink to="/orders"><Icon name="orders"/> Pedidos</NavLink>
             <NavLink to="/orders/new"><Icon name="new"/> Fazer pedido</NavLink>
             <NavLink to="/stock"><Icon name="stock"/> Movimentações</NavLink>
+            <NavLink to="/reports"><Icon name="reports"/> Relatórios</NavLink>
             <NavLink to="/products"><Icon name="products"/> Produtos</NavLink>
             {role === 'ADM' && <NavLink to="/users"><Icon name="users"/> Usuários</NavLink>}
             <NavLink to="/churches"><Icon name="church"/> Igrejas</NavLink>
@@ -127,6 +137,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <NavLink to="/orders"><Icon name="orders"/> Pedidos</NavLink>
                 <NavLink to="/orders/new"><Icon name="new"/> Fazer pedido</NavLink>
                 <NavLink to="/stock"><Icon name="stock"/> Movimentações</NavLink>
+                <NavLink to="/reports"><Icon name="reports"/> Relatórios</NavLink>
                 <NavLink to="/products"><Icon name="products"/> Produtos</NavLink>
                 {role === 'ADM' && <NavLink to="/users"><Icon name="users"/> Usuários</NavLink>}
                 <NavLink to="/churches"><Icon name="church"/> Igrejas</NavLink>
