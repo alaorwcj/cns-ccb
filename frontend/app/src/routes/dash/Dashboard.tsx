@@ -58,15 +58,23 @@ export default function Dashboard() {
   const loadDashboard = async () => {
     try {
       setLoading(true)
+      setError(null)
 
       // Carregar dados básicos para todos os usuários
-      const basicResponse = await api.get('/dash/overview')
+      const basicEndpoint = isAdmin ? '/dash/overview' : '/dash/user-overview'
+      const basicResponse = await api.get(basicEndpoint)
       setData(basicResponse.data)
 
-      // Carregar dados executivos apenas para ADM
+      // Carregar dados executivos apenas para ADM (não falhar se não conseguir)
       if (isAdmin) {
-        const executiveResponse = await api.get('/reports/dashboard')
-        setExecutiveData(executiveResponse.data)
+        try {
+          const executiveResponse = await api.get('/reports/dashboard')
+          setExecutiveData(executiveResponse.data)
+        } catch (executiveError) {
+          // Se não conseguir carregar dados executivos, deixar como null
+          // O dashboard vai mostrar o fallback básico
+          setExecutiveData(null)
+        }
       }
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Erro ao carregar dashboard')
@@ -99,8 +107,10 @@ export default function Dashboard() {
   )
 
   // Dashboard Executivo para ADM
-  if (isAdmin && executiveData) {
-    return (
+  if (isAdmin) {
+    // Se temos dados executivos, mostrar dashboard completo
+    if (executiveData) {
+      return (
       <div>
         <h2 className="text-xl font-semibold mb-6">Dashboard Executivo</h2>
 
@@ -225,6 +235,85 @@ export default function Dashboard() {
         </div>
       </div>
     )
+    } else {
+      // Fallback: mostrar dashboard básico do ADM se dados executivos não carregarem
+      return (
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold mb-6">Dashboard Administrativo</h2>
+
+          <CardGrid>
+            <div className="bg-sky-600 text-white p-4 rounded shadow min-w-0 w-full overflow-hidden h-full flex flex-col justify-between">
+              <div className="text-sm opacity-90">Pedidos em aberto</div>
+              <div className="text-fluidTitle font-extrabold mt-3 leading-tight truncate">{integer.format(data.pedidos_abertos)}</div>
+            </div>
+            <div className="bg-emerald-600 text-white p-4 rounded shadow min-w-0 w-full overflow-hidden h-full flex flex-col justify-between">
+              <div className="text-sm opacity-90">Média saída mensal</div>
+              <div className="text-fluidTitle font-extrabold mt-3 leading-tight truncate">{currency.format(Number(data.medias_saida_mensal || 0))}</div>
+            </div>
+            <div className="bg-amber-600 text-white p-4 rounded shadow min-w-0 w-full overflow-hidden h-full flex flex-col justify-between">
+              <div className="text-sm opacity-90">Total em estoque</div>
+              <div className="text-fluidTitle font-extrabold mt-3 leading-tight truncate">{currency.format(Number(data.total_estoque_em_rs || 0))}</div>
+            </div>
+          </CardGrid>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 bg-white dark:bg-gray-800 dark:text-gray-100 p-0 rounded shadow overflow-hidden flex flex-col min-w-0">
+              <div className="bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700">
+                <div className="font-semibold">Baixo estoque</div>
+              </div>
+              <div className="p-4 flex-1 min-w-0">
+                <div className="grid grid-cols-1 gap-3">
+                  {data.low_stock.length === 0 && <div className="text-sm text-gray-500 dark:text-gray-400">Nenhum item com baixo estoque</div>}
+                  {data.low_stock.slice(0, 8).map((p: any) => (
+                    <div key={p.id} className="flex justify-between text-sm items-center py-2 border-b last:border-b-0 min-w-0">
+                      <div className="truncate max-w-full pr-4 text-sm leading-relaxed">{p.name}</div>
+                      <div className="text-gray-600 dark:text-gray-300 text-sm">{integer.format(p.stock_qty)} <span className="text-xs text-gray-400 dark:text-gray-500">(min {integer.format(p.low_stock_threshold)})</span></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-1 bg-white dark:bg-gray-800 dark:text-gray-100 p-0 rounded shadow overflow-hidden flex flex-col min-w-0">
+              <div className="bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700">
+                <div className="font-semibold">Resumo rápido</div>
+              </div>
+              <div className="p-4 flex-1">
+                <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">Pedidos abertos: <strong className="text-gray-900 dark:text-white">{integer.format(data.pedidos_abertos)}</strong></div>
+                <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">Média saída/mês: <strong className="text-gray-900 dark:text-white">{currency.format(Number(data.medias_saida_mensal || 0))}</strong></div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">Valor em estoque: <strong className="text-gray-900 dark:text-white">{currency.format(Number(data.total_estoque_em_rs || 0))}</strong></div>
+                <div className="mt-4">
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Saída mensal (últimos 12 meses)</div>
+                  <div className="w-full">
+                    <ChartWrapper
+                      data={{
+                        labels: data.monthly_labels,
+                        datasets: [
+                          {
+                            label: 'Saída (R$)',
+                            data: (data.monthly_out || []).map((v: any) => Number(v)),
+                            fill: true,
+                            backgroundColor: 'rgba(59,130,246,0.12)',
+                            borderColor: 'rgba(59,130,246,1)',
+                            tension: 0.3,
+                            pointRadius: 2,
+                          },
+                        ],
+                      }}
+                      options={{
+                        plugins: { legend: { display: false } },
+                        layout: { padding: 0 },
+                        scales: { y: { ticks: { callback: (val: any) => currency.format(Number(val)) } } },
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
   }
 
   // Dashboard básico para usuários comuns
@@ -232,73 +321,58 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <CardGrid>
-        <div className="bg-sky-600 text-white p-4 rounded shadow min-w-0 w-full overflow-hidden h-full flex flex-col justify-between">
-          <div className="text-sm opacity-90">Pedidos em aberto</div>
-          <div className="text-fluidTitle font-extrabold mt-3 leading-tight truncate">{integer.format(data.pedidos_abertos)}</div>
-        </div>
-        <div className="bg-emerald-600 text-white p-4 rounded shadow min-w-0 w-full overflow-hidden h-full flex flex-col justify-between">
-          <div className="text-sm opacity-90">Média saída mensal</div>
-          <div className="text-fluidTitle font-extrabold mt-3 leading-tight truncate">{currency.format(Number(data.medias_saida_mensal || 0))}</div>
-        </div>
-        <div className="bg-amber-600 text-white p-4 rounded shadow min-w-0 w-full overflow-hidden h-full flex flex-col justify-between">
-          <div className="text-sm opacity-90">Total em estoque</div>
-          <div className="text-fluidTitle font-extrabold mt-3 leading-tight truncate">{currency.format(Number(data.total_estoque_em_rs || 0))}</div>
-        </div>
-      </CardGrid>
+      <h2 className="text-xl font-semibold mb-6">Meu Dashboard</h2>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 dark:text-gray-100 p-0 rounded shadow overflow-hidden flex flex-col min-w-0">
-          <div className="bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700">
-            <div className="font-semibold">Baixo estoque</div>
-          </div>
-          <div className="p-4 flex-1 min-w-0">
-            <div className="grid grid-cols-1 gap-3">
-              {data.low_stock.length === 0 && <div className="text-sm text-gray-500 dark:text-gray-400">Nenhum item com baixo estoque</div>}
-              {data.low_stock.slice(0, 8).map((p: any) => (
-                <div key={p.id} className="flex justify-between text-sm items-center py-2 border-b last:border-b-0 min-w-0">
-                  <div className="truncate max-w-full pr-4 text-sm leading-relaxed">{p.name}</div>
-                  <div className="text-gray-600 dark:text-gray-300 text-sm">{integer.format(p.stock_qty)} <span className="text-xs text-gray-400 dark:text-gray-500">(min {integer.format(p.low_stock_threshold)})</span></div>
-                </div>
-              ))}
+      {/* Cards do usuário */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-blue-50 p-6 rounded-lg">
+          <div className="flex items-center">
+            <div className="text-2xl mr-3">📋</div>
+            <div>
+              <div className="text-2xl font-bold text-blue-600">{data.user_pedidos_abertos}</div>
+              <div className="text-sm text-gray-600">Pedidos em Aberto</div>
             </div>
           </div>
         </div>
 
-        <div className="lg:col-span-1 bg-white dark:bg-gray-800 dark:text-gray-100 p-0 rounded shadow overflow-hidden flex flex-col min-w-0">
-          <div className="bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700">
-            <div className="font-semibold">Resumo rápido</div>
-          </div>
-          <div className="p-4 flex-1">
-            <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">Pedidos abertos: <strong className="text-gray-900 dark:text-white">{integer.format(data.pedidos_abertos)}</strong></div>
-            <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">Média saída/mês: <strong className="text-gray-900 dark:text-white">{currency.format(Number(data.medias_saida_mensal || 0))}</strong></div>
-            <div className="text-sm text-gray-600 dark:text-gray-300">Valor em estoque: <strong className="text-gray-900 dark:text-white">{currency.format(Number(data.total_estoque_em_rs || 0))}</strong></div>
-            <div className="mt-4">
-              <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Saída mensal (últimos 12 meses)</div>
-              <div className="w-full">
-                <ChartWrapper
-                  data={{
-                    labels: data.monthly_labels,
-                    datasets: [
-                      {
-                        label: 'Saída (R$)',
-                        data: (data.monthly_out || []).map((v: any) => Number(v)),
-                        fill: true,
-                        backgroundColor: 'rgba(59,130,246,0.12)',
-                        borderColor: 'rgba(59,130,246,1)',
-                        tension: 0.3,
-                        pointRadius: 2,
-                      },
-                    ],
-                  }}
-                  options={{
-                    plugins: { legend: { display: false } },
-                    layout: { padding: 0 },
-                    scales: { y: { ticks: { callback: (val: any) => currency.format(Number(val)) } } },
-                  }}
-                />
-              </div>
+        <div className="bg-green-50 p-6 rounded-lg">
+          <div className="flex items-center">
+            <div className="text-2xl mr-3">📊</div>
+            <div>
+              <div className="text-2xl font-bold text-green-600">{data.user_recent_orders}</div>
+              <div className="text-sm text-gray-600">Pedidos (30 dias)</div>
             </div>
+          </div>
+        </div>
+
+        <div className="bg-purple-50 p-6 rounded-lg">
+          <div className="flex items-center">
+            <div className="text-2xl mr-3">📈</div>
+            <div>
+              <div className="text-2xl font-bold text-purple-600">{data.user_total_orders}</div>
+              <div className="text-sm text-gray-600">Total de Pedidos</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Informações úteis */}
+      <div className="bg-white border rounded-lg p-6">
+        <h3 className="text-lg font-semibold mb-4">Informações Úteis</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-gray-50 rounded">
+            <h4 className="font-medium text-gray-900 mb-2">Como fazer um pedido</h4>
+            <p className="text-sm text-gray-600">
+              Acesse "Fazer pedido" no menu lateral para solicitar produtos.
+              Selecione os itens desejados e confirme sua solicitação.
+            </p>
+          </div>
+          <div className="p-4 bg-gray-50 rounded">
+            <h4 className="font-medium text-gray-900 mb-2">Acompanhar pedidos</h4>
+            <p className="text-sm text-gray-600">
+              Use a seção "Pedidos" para acompanhar o status das suas solicitações
+              e ver o histórico completo.
+            </p>
           </div>
         </div>
       </div>

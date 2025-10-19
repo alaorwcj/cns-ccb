@@ -8,6 +8,7 @@ from sqlalchemy import select, func
 from app.models.order import Order, OrderStatus
 from app.models.product import Product
 from app.models.stock_movement import StockMovement, MovementType
+from app.models.user import User
 
 
 def overview(db: Session) -> Dict[str, Any]:
@@ -93,4 +94,38 @@ def overview(db: Session) -> Dict[str, Any]:
         "total_estoque_em_rs": str(total_estoque_em_rs),
         "monthly_labels": labels,
         "monthly_out": monthly_out,
+    }
+
+
+def user_overview(db: Session, user_id: int) -> Dict[str, Any]:
+    """Dashboard overview for regular users - shows only their own data"""
+
+    # Count user's open orders
+    user_pedidos_abertos = db.scalar(
+        select(func.count()).select_from(Order).where(
+            Order.requester_id == user_id,
+            Order.status != OrderStatus.ENTREGUE
+        )
+    ) or 0
+
+    # Get user's recent orders (last 30 days)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    user_recent_orders = db.scalar(
+        select(func.count()).select_from(Order).where(
+            Order.requester_id == user_id,
+            Order.created_at >= thirty_days_ago
+        )
+    ) or 0
+
+    # Get user's total orders
+    user_total_orders = db.scalar(
+        select(func.count()).select_from(Order).where(
+            Order.requester_id == user_id
+        )
+    ) or 0
+
+    return {
+        "user_pedidos_abertos": int(user_pedidos_abertos),
+        "user_recent_orders": int(user_recent_orders),
+        "user_total_orders": int(user_total_orders),
     }
