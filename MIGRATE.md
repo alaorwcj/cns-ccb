@@ -60,14 +60,17 @@ Este documento detalha o plano de migração econômica do sistema CCB CNS (Sist
 
 ## 📊 Análise de Recursos e Dimensionamento
 
-### Estimativa de Recursos Atuais
+### Estimativa de Recursos Atuais (Baseado no Código)
 
-Baseado na análise do código e docker-compose:
-- **Backend**: FastAPI com SQLAlchemy (~50MB)
-- **Frontend**: React + Vite (~20MB build)
-- **Banco**: PostgreSQL com ~20+ tabelas
+Baseado na análise do código e docker-compose atual:
+
+- **Backend**: FastAPI com SQLAlchemy, Alembic migrations, JWT auth (~200MB imagem)
+- **Frontend**: React + Vite + TypeScript + Tailwind (~150MB imagem)
+- **Banco**: PostgreSQL 16 com ~20+ tabelas (dados estimados: 100-500MB)
 - **Usuários**: Estimativa inicial de 100-500 usuários ativos
-- **Dados**: Tabelas de produtos, pedidos, usuários, igrejas, movimentações
+- **APIs**: 10+ endpoints (auth, users, products, orders, reports, etc.)
+- **Build**: Python 3.12-slim + Node 20-bullseye
+- **Dependências**: Axios, Chart.js, Zustand, SQLAlchemy, Pydantic
 
 ### Dimensionamento AWS (Econômico)
 
@@ -246,7 +249,7 @@ psql -h localhost -U ccb -d ccb -c "SELECT 'users' as table, COUNT(*) FROM users
 
 #### 4.1 Preparar Docker Compose para Produção
 ```bash
-# Criar docker-compose.prod.yml
+# Criar docker-compose.prod.yml baseado na configuração atual
 cat > docker-compose.prod.yml << 'EOF'
 version: '3.8'
 services:
@@ -258,6 +261,11 @@ services:
       POSTGRES_PASSWORD: ccb_password
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ccb -d ccb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     networks:
       - ccb-network
     restart: unless-stopped
@@ -267,9 +275,15 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://ccb:ccb_password@db:5432/ccb
       JWT_SECRET: "your-jwt-secret-here"
+      JWT_ALG: HS256
+      ACCESS_TOKEN_EXPIRES_MIN: 30
+      REFRESH_TOKEN_EXPIRES_MIN: 43200
       CORS_ORIGINS: "https://ccb.suaigreja.com"
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: changeme
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - ccb-network
     restart: unless-stopped
@@ -279,7 +293,7 @@ services:
     environment:
       VITE_API_BASE_URL: http://localhost:8000
     ports:
-      - "3000:3000"
+      - "3000:5173"
     networks:
       - ccb-network
     restart: unless-stopped
@@ -298,22 +312,22 @@ EOF
 # Configurar Nginx
 sudo vi /etc/nginx/nginx.conf
 
-# Configuração básica
+# Configuração baseada na estrutura atual do projeto
 cat > /etc/nginx/conf.d/ccb.conf << 'EOF'
 server {
     listen 80;
     server_name ccb.suaigreja.com;
 
-    # Frontend (porta 3000)
+    # Frontend (porta 5173 - Vite dev server)
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:5173;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # API (porta 8000)
+    # API (porta 8000 - FastAPI)
     location /api/ {
         proxy_pass http://localhost:8000/;
         proxy_set_header Host $host;
@@ -339,19 +353,31 @@ sudo systemctl reload nginx
 git clone https://github.com/alaorwcj/cns-ccb.git
 cd cns-ccb
 
-# Configurar variáveis de ambiente
+# Configurar variáveis de ambiente do backend
 cp backend/.env.example backend/.env
 vi backend/.env
 # DATABASE_URL=postgresql+psycopg2://ccb:ccb_password@localhost:5432/ccb
 # JWT_SECRET=your-super-secret-jwt-key-here
+# JWT_ALG=HS256
+# ACCESS_TOKEN_EXPIRES_MIN=30
+# REFRESH_TOKEN_EXPIRES_MIN=43200
 # CORS_ORIGINS=https://ccb.suaigreja.com
+# ADMIN_EMAIL=admin@example.com
+# ADMIN_PASSWORD=changeme
 
 # Build e start dos containers
 docker-compose -f docker-compose.prod.yml up -d --build
 
+# Aguardar healthcheck do banco
+sleep 30
+
 # Verificar se está rodando
 docker-compose -f docker-compose.prod.yml ps
 docker-compose -f docker-compose.prod.yml logs
+
+# Verificar se a API está respondendo
+curl -X GET "http://localhost:8000/health"
+curl -X GET "http://localhost:8000/"
 ```
 
 ### Fase 5: Configuração de Frontend Externo (1-2 dias)
@@ -479,17 +505,28 @@ sudo crontab -e
 
 #### 7.1 Testes Funcionais
 ```bash
-# Testar API
+# Testar API endpoints específicos do CCB CNS
 curl -X GET "http://YOUR_ELASTIC_IP/api/health"
+curl -X GET "http://YOUR_ELASTIC_IP/api/"  # Root endpoint
+
+# Testar autenticação
 curl -X POST "http://YOUR_ELASTIC_IP/api/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin@example.com","password":"SENHA"}'
+  -d '{"username":"admin@example.com","password":"changeme"}'
+
+# Testar outros endpoints principais
+curl -X GET "http://YOUR_ELASTIC_IP/api/users/"
+curl -X GET "http://YOUR_ELASTIC_IP/api/products/"
+curl -X GET "http://YOUR_ELASTIC_IP/api/churches/"
+curl -X GET "http://YOUR_ELASTIC_IP/api/orders/"
+curl -X GET "http://YOUR_ELASTIC_IP/api/reports/"
 
 # Testar frontend via IP
 curl -I "http://YOUR_ELASTIC_IP"
 
 # Testar HTTPS após configurar SSL
 curl -I "https://api.ccb.suaigreja.com/api/health"
+curl -I "https://ccb.suaigreja.com"
 ```
 
 #### 7.2 Configurar Monitoramento Básico
@@ -681,7 +718,33 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ---
 
-## 🎯 Vantagens desta Abordagem
+## 🔍 Considerações Específicas do Projeto CCB CNS
+
+### Arquitetura Atual Analisada
+- **Monorepo**: Backend, frontend e infra no mesmo repositório
+- **Docker Compose**: 4 serviços (db, api, web, api-test) em `infra/`
+- **Backend**: FastAPI com SQLAlchemy ORM, Alembic migrations, JWT auth
+- **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS
+- **Banco**: PostgreSQL 16 com healthcheck
+- **EntryPoints**: Scripts customizados para inicialização
+
+### Dependências Críticas
+- **Backend**: Python 3.12-slim, SQLAlchemy, Pydantic, Uvicorn
+- **Frontend**: Node 20-bullseye, React Router, Axios, Chart.js, Zustand
+- **Build**: NPM CI para dependências exatas, Rollup para bundling
+
+### Configurações Essenciais
+- **Variáveis de Ambiente**: JWT secrets, CORS origins, database URLs
+- **Migrations**: Alembic auto-generates initial migration se necessário
+- **Seed Data**: Bootstrap de usuário admin via environment variables
+- **Health Checks**: PostgreSQL healthcheck no docker-compose
+
+### Pontos de Atenção na Migração
+- **CORS**: Ajustar origins para domínio de produção
+- **Database URL**: Usar `localhost` em vez de `db` service name
+- **Frontend Build**: Vite roda em modo dev (porta 5173) vs produção
+- **Volumes**: Dados PostgreSQL em volume nomeado para persistência
+- **Environment**: Copiar `.env.example` e ajustar valores de produção
 
 ### ✅ Prós
 - **Custo muito menor**: 65-70% de economia
@@ -689,6 +752,8 @@ docker-compose -f docker-compose.prod.yml up -d
 - **Flexibilidade**: Fácil upgrade (t3.medium → t3.large → etc.)
 - **Controle total**: Acesso root à infraestrutura
 - **Backup simples**: Snapshots EBS + scripts locais
+- **Docker ready**: Migração direta do docker-compose atual
+- **Tecnologias maduras**: FastAPI + React + PostgreSQL comprovadas
 
 ### ⚠️ Contras
 - **Single point of failure**: Sem alta disponibilidade
@@ -1287,13 +1352,16 @@ aws ecs update-service \
 
 ## 🎯 Próximos Passos
 
-1. **Revisar e Aprovar**: Este plano deve ser revisado pela equipe técnica e aprovado pela gestão
-2. **Orçamento**: Confirmar orçamento disponível para a migração
-3. **Equipe**: Designar responsáveis para cada fase
-4. **Cronograma**: Definir datas específicas para cada fase
-5. **Iniciar Fase 1**: Começar com o planejamento detalhado e configuração da conta AWS
+1. **Revisar o plano** no `MIGRATE.md` - adaptado para a arquitetura real do projeto
+2. **Verificar dependências** no `backend/requirements.txt` e `frontend/app/package.json`
+3. **Testar docker-compose** localmente: `cd infra && docker-compose up -d --build`
+4. **Aprovar orçamento** ($35-50/mês vs $108-175 do plano anterior)
+5. **Configurar conta AWS** e usuário IAM
+6. **Provisionar EC2 t3.medium** com Docker e Docker Compose
+7. **Testar migração** em ambiente de staging primeiro
+8. **Go-Live**: Migrar dados e configurar produção
 
 ---
 
-*Este documento deve ser atualizado conforme a migração progride e novos requisitos são identificados.*</content>
+*Este plano foi ajustado especificamente para o repositório https://github.com/alaorwcj/cns-ccb.git, considerando a arquitetura FastAPI + React + PostgreSQL atual.*</content>
 <parameter name="filePath">/root/app/cns-ccb/MIGRATE.md
