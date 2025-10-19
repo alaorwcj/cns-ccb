@@ -306,6 +306,9 @@ export default function Dashboard() {
   )
 }
 
+  // Dashboard básico para usuários comuns
+  if (!data) return null
+
   return (
     <div className="space-y-6">
       <CardGrid>
