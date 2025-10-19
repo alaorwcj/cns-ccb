@@ -1,17 +1,15 @@
-# Plano de Migração para AWS - Sistema CCB CNS
+# Plano de Migração Econômica para AWS - Sistema CCB CNS
 
 ## 📋 Visão Geral
 
-Este documento detalha o plano completo de migração do sistema CCB CNS (Sistema de Controle de Pedidos da Congregação Cristã no Brasil) da infraestrutura atual baseada em Docker Compose para uma arquitetura nativa da AWS.
+Este documento detalha o plano de migração econômica do sistema CCB CNS (Sistema de Controle de Pedidos da Congregação Cristã no Brasil) para uma arquitetura IaaS simples na AWS, utilizando uma única instância EC2.
 
 ### 🎯 Objetivos da Migração
 
-- **Alta Disponibilidade**: Sistema 99.9% uptime
-- **Escalabilidade**: Auto-scaling baseado em demanda
-- **Segurança**: Implementar melhores práticas de segurança AWS
-- **Custos Otimizados**: Pagar apenas pelo uso
-- **Backup e Recuperação**: Estratégia robusta de DR
-- **Monitoramento**: Observabilidade completa
+- **Custo Otimizado**: Solução mais econômica possível
+- **Simplicidade**: Arquitetura fácil de manter
+- **Disponibilidade**: 99% uptime com backup simples
+- **Escalabilidade**: Capacidade de upgrade futuro
 - **Sem Perda de Dados**: Migração transparente do banco
 
 ---
@@ -34,21 +32,702 @@ Este documento detalha o plano completo de migração do sistema CCB CNS (Sistem
                     └─────────────────────┘
 ```
 
-### Arquitetura AWS Proposta
+### Arquitetura AWS Proposta (IaaS Simples)
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   CloudFront    │    │   API Gateway   │    │   ECS Fargate   │
-│   + S3 Static   │◄──►│   (Opcional)    │◄──►│   (Backend)     │
-│   (Frontend)    │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                    ┌─────────────────────┐    ┌─────────────────┐
-                    │   RDS PostgreSQL    │    │   ElastiCache    │
-                    │   (Banco de Dados)  │    │   (Redis)        │
-                    └─────────────────────┘    └─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                        EC2 Instance                         │
+│  ┌─────────────────┐    ┌─────────────────┐                 │
+│  │   Nginx         │    │   PostgreSQL     │                │
+│  │   (Port 80/443) │    │   (Port 5432)    │                │
+│  └─────────────────┘    └─────────────────┘                 │
+│           │                       │                        │
+│           ▼                       ▼                        │
+│  ┌─────────────────┐    ┌─────────────────┐                 │
+│  │   Frontend      │    │     Backend     │                 │
+│  │   (Static)      │    │   (FastAPI)     │                 │
+│  │   Port: 3000    │    │   Port: 8000    │                 │
+│  └─────────────────┘    └─────────────────┘                 │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│   CloudFront    │
+│   (CDN Global)  │
+└─────────────────┘
 ```
+
+---
+
+## 📊 Análise de Recursos e Dimensionamento
+
+### Estimativa de Recursos Atuais
+
+Baseado na análise do código e docker-compose:
+- **Backend**: FastAPI com SQLAlchemy (~50MB)
+- **Frontend**: React + Vite (~20MB build)
+- **Banco**: PostgreSQL com ~20+ tabelas
+- **Usuários**: Estimativa inicial de 100-500 usuários ativos
+- **Dados**: Tabelas de produtos, pedidos, usuários, igrejas, movimentações
+
+### Dimensionamento AWS (Econômico)
+
+#### EC2 Instance
+- **Tipo**: t3.medium (2 vCPU, 4 GB RAM) - $30-40/mês
+- **Storage**: 50-100 GB gp3 SSD - $5-10/mês
+- **OS**: Amazon Linux 2 ou Ubuntu 22.04
+- **Backup**: Snapshots EBS semanais
+
+#### Outros Serviços
+- **CloudFront**: CDN para frontend estático - $5-10/mês
+- **S3**: Storage para assets - $0.02/mês
+- **Route 53**: DNS - $0.50/mês
+- **Certificate Manager**: SSL gratuito
+
+#### Rede
+- **Elastic IP**: IP fixo gratuito (se usado 24/7)
+- **Security Group**: Regras de firewall
+
+---
+
+## 🚀 Plano de Migração - Fases Detalhadas
+
+### Fase 1: Preparação (3-5 dias)
+
+#### 1.1 Análise e Backup
+```bash
+# Backup completo do banco atual
+pg_dump -h localhost -U ccb -d ccb > backup_ccb_$(date +%Y%m%d).sql
+
+# Verificar tamanho do backup
+ls -lh backup_ccb_*.sql
+
+# Fazer backup dos arquivos de configuração
+tar -czf config_backup.tar.gz backend/.env frontend/app/
+```
+
+#### 1.2 Configuração da Conta AWS
+```bash
+# Criar usuário IAM para migração
+aws iam create-user --user-name ccb-admin
+aws iam attach-user-policy --user-name ccb-admin \
+  --policy-arn arn:aws:iam::aws:policy/AmazonEC2FullAccess
+aws iam attach-user-policy --user-name ccb-admin \
+  --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+aws iam attach-user-policy --user-name ccb-admin \
+  --policy-arn arn:aws:iam::aws:policy/CloudFrontFullAccess
+
+# Criar access keys
+aws iam create-access-key --user-name ccb-admin
+```
+
+#### 1.3 Setup Básico da EC2
+```bash
+# Criar VPC default (ou usar existente)
+aws ec2 describe-vpcs
+
+# Criar Security Group
+aws ec2 create-security-group \
+  --group-name ccb-sg \
+  --description "CCB Application Security Group"
+
+# Permitir SSH (apenas do seu IP)
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-xxxxx \
+  --protocol tcp \
+  --port 22 \
+  --cidr YOUR_IP/32
+
+# Permitir HTTP/HTTPS
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-xxxxx \
+  --protocol tcp \
+  --port 80 \
+  --cidr 0.0.0.0/0
+
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-xxxxx \
+  --protocol tcp \
+  --port 443 \
+  --cidr 0.0.0.0/0
+```
+
+### Fase 2: Provisionamento da EC2 (1-2 dias)
+
+#### 2.1 Criar Instância EC2
+```bash
+# Criar EC2 t3.medium
+aws ec2 run-instances \
+  --image-id ami-0abcdef1234567890 \
+  --instance-type t3.medium \
+  --key-name your-key-pair \
+  --security-group-ids sg-xxxxx \
+  --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":50,"VolumeType":"gp3"}}]' \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=CCB-Prod}]' \
+  --user-data file://ec2-userdata.sh
+
+# Aguardar instância ficar running
+aws ec2 wait instance-running --instance-ids i-xxxxx
+
+# Alocar Elastic IP
+aws ec2 allocate-address
+aws ec2 associate-address --instance-id i-xxxxx --allocation-id eipalloc-xxxxx
+```
+
+#### 2.2 Configuração Inicial da EC2
+```bash
+# Conectar via SSH
+ssh -i your-key.pem ec2-user@YOUR_ELASTIC_IP
+
+# Atualizar sistema
+sudo yum update -y  # Amazon Linux
+# ou
+sudo apt update && sudo apt upgrade -y  # Ubuntu
+
+# Instalar Docker
+sudo yum install -y docker  # Amazon Linux
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker ec2-user
+
+# Instalar Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Instalar Nginx
+sudo yum install -y nginx  # Amazon Linux
+sudo systemctl start nginx
+sudo systemctl enable nginx
+
+# Instalar PostgreSQL client (para restore)
+sudo yum install -y postgresql
+```
+
+### Fase 3: Migração do Banco de Dados (1 dia)
+
+#### 3.1 Instalar PostgreSQL na EC2
+```bash
+# Instalar PostgreSQL 16
+sudo yum install -y postgresql-server postgresql-contrib
+sudo postgresql-setup initdb
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+# Configurar banco
+sudo -u postgres psql
+CREATE USER ccb WITH PASSWORD 'ccb_password';
+CREATE DATABASE ccb OWNER ccb;
+GRANT ALL PRIVILEGES ON DATABASE ccb TO ccb;
+\q
+
+# Configurar PostgreSQL para aceitar conexões
+sudo vi /var/lib/pgsql/data/pg_hba.conf
+# Adicionar: local   ccb   ccb   md5
+# Adicionar: host    ccb   ccb   127.0.0.1/32   md5
+
+sudo vi /var/lib/pgsql/data/postgresql.conf
+# listen_addresses = 'localhost'
+
+sudo systemctl restart postgresql
+```
+
+#### 3.2 Migrar Dados
+```bash
+# Upload do backup para EC2
+scp backup_ccb_20251019.sql ec2-user@YOUR_ELASTIC_IP:~/
+
+# Restaurar no PostgreSQL da EC2
+sudo -u postgres psql -d ccb < backup_ccb_20251019.sql
+
+# Verificar se os dados foram migrados
+psql -h localhost -U ccb -d ccb -c "SELECT 'users' as table, COUNT(*) FROM users UNION ALL SELECT 'products', COUNT(*) FROM products UNION ALL SELECT 'orders', COUNT(*) FROM orders;"
+```
+
+### Fase 4: Deploy da Aplicação (2-3 dias)
+
+#### 4.1 Preparar Docker Compose para Produção
+```bash
+# Criar docker-compose.prod.yml
+cat > docker-compose.prod.yml << 'EOF'
+version: '3.8'
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ccb
+      POSTGRES_USER: ccb
+      POSTGRES_PASSWORD: ccb_password
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - ccb-network
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://ccb:ccb_password@db:5432/ccb
+      JWT_SECRET: "your-jwt-secret-here"
+      CORS_ORIGINS: "https://ccb.suaigreja.com"
+    depends_on:
+      - db
+    networks:
+      - ccb-network
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend/app
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    networks:
+      - ccb-network
+    restart: unless-stopped
+
+networks:
+  ccb-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+EOF
+```
+
+#### 4.2 Configurar Nginx como Reverse Proxy
+```bash
+# Configurar Nginx
+sudo vi /etc/nginx/nginx.conf
+
+# Configuração básica
+cat > /etc/nginx/conf.d/ccb.conf << 'EOF'
+server {
+    listen 80;
+    server_name ccb.suaigreja.com;
+
+    # Frontend (porta 3000)
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # API (porta 8000)
+    location /api/ {
+        proxy_pass http://localhost:8000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Logs de erro
+    error_log /var/log/nginx/ccb_error.log;
+    access_log /var/log/nginx/ccb_access.log;
+}
+EOF
+
+# Testar configuração
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### 4.3 Deploy da Aplicação
+```bash
+# Clonar repositório na EC2
+git clone https://github.com/alaorwcj/cns-ccb.git
+cd cns-ccb
+
+# Configurar variáveis de ambiente
+cp backend/.env.example backend/.env
+vi backend/.env
+# DATABASE_URL=postgresql+psycopg2://ccb:ccb_password@localhost:5432/ccb
+# JWT_SECRET=your-super-secret-jwt-key-here
+# CORS_ORIGINS=https://ccb.suaigreja.com
+
+# Build e start dos containers
+docker-compose -f docker-compose.prod.yml up -d --build
+
+# Verificar se está rodando
+docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.prod.yml logs
+```
+
+### Fase 5: Configuração de Frontend Externo (1-2 dias)
+
+#### 5.1 Build do Frontend para Produção
+```bash
+# Build do frontend
+cd frontend/app
+npm install
+npm run build
+
+# Criar bucket S3 para assets estáticos
+aws s3 mb s3://ccb-assets-prod
+
+# Upload do build
+aws s3 sync dist/ s3://ccb-assets-prod --delete
+
+# Configurar bucket como público
+aws s3api put-bucket-policy --bucket ccb-assets-prod --policy '{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::ccb-assets-prod/*"
+    }
+  ]
+}'
+```
+
+#### 5.2 Configurar CloudFront
+```bash
+# Criar distribuição CloudFront
+aws cloudfront create-distribution --distribution-config '{
+  "CallerReference": "ccb-frontend-'$(date +%s)'",
+  "Comment": "CCB Frontend Production",
+  "DefaultRootObject": "index.html",
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "ccb-s3-origin",
+        "DomainName": "ccb-assets-prod.s3.amazonaws.com",
+        "S3OriginConfig": {
+          "OriginAccessIdentity": ""
+        }
+      }
+    ]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "ccb-s3-origin",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "MinTTL": 0,
+    "DefaultTTL": 86400,
+    "MaxTTL": 31536000,
+    "ForwardedValues": {
+      "QueryString": false,
+      "Cookies": {
+        "Forward": "none"
+      }
+    }
+  },
+  "Enabled": true,
+  "Aliases": {
+    "Quantity": 1,
+    "Items": ["ccb.suaigreja.com"]
+  }
+}'
+```
+
+### Fase 6: Configuração de DNS e SSL (1 dia)
+
+#### 6.1 Configurar Route 53
+```bash
+# Criar hosted zone
+aws route53 create-hosted-zone --name suaigreja.com --caller-reference $(date +%s)
+
+# Criar registro A para a EC2
+aws route53 change-resource-record-sets \
+  --hosted-zone-id ZXXXXXXXXXXXXX \
+  --change-batch '{
+    "Changes": [{
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "api.ccb.suaigreja.com",
+        "Type": "A",
+        "TTL": 300,
+        "ResourceRecords": [{"Value": "YOUR_ELASTIC_IP"}]
+      }
+    }]
+  }'
+
+# Criar registro CNAME para CloudFront
+aws route53 change-resource-record-sets \
+  --hosted-zone-id ZXXXXXXXXXXXXX \
+  --change-batch '{
+    "Changes": [{
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "ccb.suaigreja.com",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [{"Value": "CLOUDFRONT_DOMAIN"}]
+      }
+    }]
+  }'
+```
+
+#### 6.2 Configurar SSL com Let's Encrypt
+```bash
+# Instalar Certbot
+sudo yum install -y certbot python3-certbot-nginx
+
+# Obter certificado SSL
+sudo certbot --nginx -d ccb.suaigreja.com -d api.ccb.suaigreja.com
+
+# Configurar renovação automática
+sudo crontab -e
+# Adicionar: 0 12 * * * /usr/bin/certbot renew --quiet
+```
+
+### Fase 7: Testes e Go-Live (2-3 dias)
+
+#### 7.1 Testes Funcionais
+```bash
+# Testar API
+curl -X GET "http://YOUR_ELASTIC_IP/api/health"
+curl -X POST "http://YOUR_ELASTIC_IP/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin@example.com","password":"SENHA"}'
+
+# Testar frontend via IP
+curl -I "http://YOUR_ELASTIC_IP"
+
+# Testar HTTPS após configurar SSL
+curl -I "https://api.ccb.suaigreja.com/api/health"
+```
+
+#### 7.2 Configurar Monitoramento Básico
+```bash
+# Instalar CloudWatch agent
+sudo yum install -y amazon-cloudwatch-agent
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config \
+  -m ec2 \
+  -c ssm:AmazonCloudWatch-linux \
+  -s
+
+# Configurar alertas básicos
+aws cloudwatch put-metric-alarm \
+  --alarm-name "CCB-HighCPU" \
+  --alarm-description "CPU usage above 80%" \
+  --metric-name CPUUtilization \
+  --namespace AWS/EC2 \
+  --statistic Average \
+  --period 300 \
+  --threshold 80 \
+  --comparison-operator GreaterThanThreshold \
+  --dimensions Name=InstanceId,Value=i-xxxxx
+```
+
+#### 7.3 Backup Automático
+```bash
+# Criar script de backup
+cat > /home/ec2-user/backup.sh << 'EOF'
+#!/bin/bash
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="/home/ec2-user/backup_ccb_$DATE.sql"
+
+# Backup do banco
+pg_dump -h localhost -U ccb -d ccb > $BACKUP_FILE
+
+# Comprimir
+gzip $BACKUP_FILE
+
+# Upload para S3
+aws s3 cp ${BACKUP_FILE}.gz s3://ccb-backups/
+
+# Limpar backups antigos (manter últimos 7 dias)
+find /home/ec2-user -name "backup_ccb_*.sql.gz" -mtime +7 -delete
+EOF
+
+chmod +x /home/ec2-user/backup.sh
+
+# Agendar backup diário
+crontab -e
+# Adicionar: 0 2 * * * /home/ec2-user/backup.sh
+```
+
+---
+
+## 💰 Estimativa de Custos (Muito Mais Econômica)
+
+### Custos Mensais Estimados (us-east-1)
+
+| Serviço | Configuração | Custo Mensal |
+|---------|-------------|--------------|
+| **EC2 t3.medium** | 2 vCPU, 4GB RAM, 50GB SSD | $30-40 |
+| **Elastic IP** | 1 IP fixo (se usado 24/7) | $0 |
+| **CloudFront** | 10GB transfer | $5-10 |
+| **S3** | 1GB storage + backups | $0.10 |
+| **Route 53** | 1 hosted zone | $0.50 |
+| **CloudWatch** | Métricas básicas | $1-2 |
+
+**Total Estimado**: **$37-53/mês** ⭐
+
+### Comparação com Plano Anterior
+- **Plano Original**: $108-175/mês
+- **Plano Econômico**: $37-53/mês
+- **Economia**: **65-70% de redução** 💰
+
+### Custos de Migração (One-time)
+- **EC2 Setup**: $50-100
+- **SSL Certificate**: $0 (Let's Encrypt)
+- **Domínio**: $10-20/ano (se necessário)
+- **Total**: **$60-120**
+
+---
+
+## 🔒 Segurança Básica
+
+### Configurações Essenciais
+
+#### 1. Security Group
+```bash
+# Apenas portas necessárias abertas
+aws ec2 revoke-security-group-ingress \
+  --group-id sg-xxxxx \
+  --protocol tcp \
+  --port 22 \
+  --cidr 0.0.0.0/0
+
+# Apenas seu IP para SSH
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-xxxxx \
+  --protocol tcp \
+  --port 22 \
+  --cidr YOUR_IP/32
+```
+
+#### 2. Atualizações Automáticas
+```bash
+# Configurar atualizações automáticas
+sudo yum install -y yum-cron
+sudo systemctl start yum-cron
+sudo systemctl enable yum-cron
+```
+
+#### 3. Firewall Local
+```bash
+# Configurar firewalld
+sudo systemctl start firewalld
+sudo systemctl enable firewalld
+
+# Apenas portas necessárias
+sudo firewall-cmd --permanent --add-port=80/tcp
+sudo firewall-cmd --permanent --add-port=443/tcp
+sudo firewall-cmd --permanent --add-port=22/tcp
+sudo firewall-cmd --reload
+```
+
+---
+
+## 📋 Checklist de Migração Simplificado
+
+### Pré-Migração
+- [ ] Backup completo do banco atual
+- [ ] Configuração da conta AWS
+- [ ] Setup de Security Groups
+- [ ] Compra/registro de domínio
+
+### Durante a Migração
+- [ ] Provisionamento da EC2
+- [ ] Instalação do PostgreSQL
+- [ ] Restauração dos dados
+- [ ] Deploy da aplicação
+- [ ] Configuração do Nginx
+
+### Pós-Migração
+- [ ] Configuração de DNS
+- [ ] Setup de SSL
+- [ ] Testes funcionais
+- [ ] Configuração de backups
+- [ ] Monitoramento básico
+
+---
+
+## 🚨 Plano de Rollback Simples
+
+### Cenário de Rollback
+Se problemas críticos forem identificados:
+
+```bash
+# 1. Parar containers na EC2
+docker-compose -f docker-compose.prod.yml down
+
+# 2. Restaurar backup do banco
+psql -h localhost -U ccb -d ccb < backup_ccb_20251019.sql
+
+# 3. Restart dos containers
+docker-compose -f docker-compose.prod.yml up -d
+
+# 4. Se necessário, voltar DNS para IP antigo
+# (seu servidor atual continua funcionando)
+```
+
+### Tempo Estimado de Rollback: 30-60 minutos
+
+---
+
+## 📅 Timeline da Migração (Econômica)
+
+| Fase | Duração | Custo Estimado | Dificuldade |
+|------|---------|----------------|-------------|
+| **Fase 1: Preparação** | 3-5 dias | $0 | Baixa |
+| **Fase 2: EC2 Setup** | 1-2 dias | $30-40 | Média |
+| **Fase 3: Banco** | 1 dia | $0 | Baixa |
+| **Fase 4: Aplicação** | 2-3 dias | $0 | Média |
+| **Fase 5: Frontend** | 1-2 dias | $5-10 | Baixa |
+| **Fase 6: DNS/SSL** | 1 dia | $0 | Baixa |
+| **Fase 7: Testes** | 2-3 dias | $0 | Baixa |
+
+**Duração Total Estimada**: **11-18 dias**
+**Custo Total**: **$35-50/mês** (vs $108-175 do plano anterior)
+
+---
+
+## 🎯 Vantagens desta Abordagem
+
+### ✅ Prós
+- **Custo muito menor**: 65-70% de economia
+- **Simplicidade**: Uma única instância para gerenciar
+- **Flexibilidade**: Fácil upgrade (t3.medium → t3.large → etc.)
+- **Controle total**: Acesso root à infraestrutura
+- **Backup simples**: Snapshots EBS + scripts locais
+
+### ⚠️ Contras
+- **Single point of failure**: Sem alta disponibilidade
+- **Escalabilidade limitada**: Upgrade manual necessário
+- **Manutenção**: Updates manuais do SO e aplicação
+- **Backup**: Menos automatizado que RDS
+
+---
+
+## 📞 Suporte e Manutenção
+
+### Monitoramento Básico
+- **CloudWatch**: CPU, memória, disco
+- **Logs locais**: Nginx, aplicação, PostgreSQL
+- **Alertas**: CPU > 80%, disco > 85%
+
+### Backup Strategy
+- **Diário**: Backup automático do banco para S3
+- **Semanal**: Snapshot EBS da EC2
+- **Manual**: Snapshots sob demanda
+
+### Manutenção Regular
+- **Semanal**: Verificar logs por erros
+- **Mensal**: Atualizar pacotes do sistema
+- **Trimestral**: Testar restore de backup
+
+---
+
+## 🎯 Próximos Passos
+
+1. **Aprovar Plano**: Este plano econômico reduz custos em ~70%
+2. **Configurar AWS**: Criar conta e usuário IAM
+3. **Provisionar EC2**: t3.medium com 50GB SSD
+4. **Testar Migração**: Ambiente de staging primeiro
+5. **Go-Live**: Migrar dados e configurar produção
+
+---
+
+*Esta versão econômica prioriza custo sobre complexidade, mantendo funcionalidade completa e backup adequado.*
 
 ---
 
