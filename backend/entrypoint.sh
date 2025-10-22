@@ -21,6 +21,62 @@ else:
     sys.exit(1)
 PY
 
+# Check if database is empty and restore dump if available
+python - <<'PY'
+import os
+import psycopg2
+from psycopg2 import sql
+
+# Database connection
+conn_params = {
+    'host': os.getenv('DB_HOST', 'db'),
+    'port': os.getenv('DB_PORT', '5432'),
+    'user': os.getenv('DB_USER', 'ccb'),
+    'password': os.getenv('DB_PASSWORD', 'ccb'),
+    'database': os.getenv('DB_NAME', 'ccb')
+}
+
+try:
+    conn = psycopg2.connect(**conn_params)
+    cursor = conn.cursor()
+    
+    # Check if users table exists and has data
+    cursor.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users'")
+    table_exists = cursor.fetchone()[0] > 0
+    
+    if table_exists:
+        cursor.execute("SELECT COUNT(*) FROM users")
+        user_count = cursor.fetchone()[0]
+        if user_count > 0:
+            print("Database already has data, skipping restore")
+        else:
+            print("Database tables exist but no users, restoring dump...")
+            # Restore dump
+            import subprocess
+            dump_path = '/app/dump_ccb.backup'
+            if os.path.exists(dump_path):
+                subprocess.run(['pg_restore', '-U', conn_params['user'], '-d', conn_params['database'], dump_path], check=True)
+                print("Dump restored successfully")
+            else:
+                print("Dump file not found")
+    else:
+        print("No tables found, restoring dump...")
+        # Restore dump
+        import subprocess
+        dump_path = '/app/dump_ccb.backup'
+        if os.path.exists(dump_path):
+            subprocess.run(['pg_restore', '-U', conn_params['user'], '-d', conn_params['database'], dump_path], check=True)
+            print("Dump restored successfully")
+        else:
+            print("Dump file not found")
+    
+    cursor.close()
+    conn.close()
+    
+except Exception as e:
+    print(f"Database check/restore failed: {e}")
+PY
+
 # Auto-generate initial migration if no revision files exist (ignore .gitkeep)
 if ! find migrations/versions -maxdepth 1 -name "*.py" | grep -q .; then
   echo "No Alembic revision files found. Autogenerating initial migration..."
