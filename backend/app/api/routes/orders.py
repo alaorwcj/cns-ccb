@@ -50,12 +50,13 @@ def post_order(data: OrderCreate, db: Session = Depends(db_dep), payload: dict =
     user_id = int(payload.get("user_id"))
     is_admin = payload.get("role") == UserRole.ADM.value
     # ensure user is allowed to create orders for the chosen church
-    from app.models.user import User as UserModel
+    from app.models.user import User as UserModel, user_church
+    from sqlalchemy import select, func
     user = db.get(UserModel, user_id)
     if not is_admin:
-        # user must belong to the church they are creating order for
-        allowed = any(c.id == data.church_id for c in (user.churches or []))
-        if not allowed:
+        # verify membership directly in DB (don't rely on relationship being pre-loaded)
+        cnt = db.scalar(select(func.count()).select_from(user_church).where(user_church.c.user_id == user_id, user_church.c.church_id == data.church_id))
+        if not cnt:
             raise HTTPException(status_code=403, detail="Not allowed to create orders for this church")
     try:
         items = [(it.product_id, it.qty) for it in data.items]
