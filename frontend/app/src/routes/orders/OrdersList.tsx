@@ -115,27 +115,9 @@ export default function OrdersList() {
     navigate(`/orders/${o.id}/edit`)
   }
 
-  // Open view modal but ensure item product names are available.
-  const openViewOrder = async (o: any) => {
-    // if items already include product object with name, just open
-    const hasProductNames = o.items && o.items.every((it: any) => it.product && it.product.name)
-    if (hasProductNames) {
-      setViewOrder(o)
-      return
-    }
-
-    // try to fetch products and map names by id (best-effort)
-    try {
-      // request a reasonably large page to include all products used by orders
-      const r = await api.get('/products?limit=1000')
-      const products = Array.isArray(r.data) ? r.data : (r.data.data || [])
-      const map = new Map(products.map((p: any) => [p.id, p]))
-      const itemsWithProduct = (o.items || []).map((it: any) => ({ ...it, product: map.get(it.product_id) }))
-      setViewOrder({ ...o, items: itemsWithProduct })
-    } catch (e) {
-      // fallback: open as-is
-      setViewOrder(o)
-    }
+  // Open view modal (backend now provides product_name on items)
+  const openViewOrder = (o: any) => {
+    setViewOrder(o)
   }
 
   const filteredOrders = filterStatus === 'all' ? orders : orders.filter((o: any) => o.status === filterStatus)
@@ -285,7 +267,7 @@ export default function OrdersList() {
               <ul className="list-disc ml-6">
                 {viewOrder.items?.map((it: any) => (
                   <li key={it.id} className="text-sm">
-                    {it.product?.name ? it.product.name : `Produto #${it.product_id}`} × {it.qty}
+                    {it.product_name ? it.product_name : `Produto #${it.product_id}`} × {it.qty}
                     {it.unit_price != null && (
                       <span className="text-xs text-gray-600"> — {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(it.unit_price))}</span>
                     )}
