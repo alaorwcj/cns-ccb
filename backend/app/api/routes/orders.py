@@ -48,6 +48,15 @@ def get_orders(
 @router.post("", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
 def post_order(data: OrderCreate, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
     user_id = int(payload.get("user_id"))
+    is_admin = payload.get("role") == UserRole.ADM.value
+    # ensure user is allowed to create orders for the chosen church
+    from app.models.user import User as UserModel
+    user = db.get(UserModel, user_id)
+    if not is_admin:
+        # user must belong to the church they are creating order for
+        allowed = any(c.id == data.church_id for c in (user.churches or []))
+        if not allowed:
+            raise HTTPException(status_code=403, detail="Not allowed to create orders for this church")
     try:
         items = [(it.product_id, it.qty) for it in data.items]
         order = create_order(db, requester_id=user_id, church_id=data.church_id, items=items)
@@ -70,9 +79,11 @@ def get_order(order_id: int, db: Session = Depends(db_dep), payload: dict = Depe
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    # Allow if admin or the requester
+    # Allow if admin, the requester, or a user assigned to the church
     if not is_admin and order.requester_id != user_id:
-        raise HTTPException(status_code=403, detail="Not allowed")
+        # check church membership
+        if not order.church or not any(u.id == user_id for u in order.church.users):
+            raise HTTPException(status_code=403, detail="Not allowed")
     
     # Add church_name and church_city
     order.church_name = order.church.name if order.church else None
@@ -141,8 +152,10 @@ def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payl
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    # allow update if requester or if user belongs to the same church
     if order.requester_id != user_id:
-        raise HTTPException(status_code=403, detail="Not allowed")
+        if not order.church or not any(u.id == user_id for u in order.church.users):
+            raise HTTPException(status_code=403, detail="Not allowed")
     if order.status != OrderStatus.PENDENTE:
         raise HTTPException(status_code=400, detail="Only pending orders can be updated")
     try:
