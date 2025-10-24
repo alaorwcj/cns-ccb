@@ -11,6 +11,15 @@ function decodeUserIdFromJWT(token: string): number | null {
   }
 }
 
+function decodeRoleFromJWT(token: string): string | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload?.role || null
+  } catch {
+    return null
+  }
+}
+
 export default function OrderCreate() {
   const navigate = useNavigate()
   const [categories, setCategories] = useState<any[]>([])
@@ -31,7 +40,12 @@ export default function OrderCreate() {
         const [cats, prods, chs, ordersRes] = await Promise.all([
           api.get('/categories'),
           api.get('/products?limit=100'),
-          api.get('/churches'),
+          // fetch either all churches (for admin) or only user's assigned churches
+          (async () => {
+            const role = decodeRoleFromJWT(localStorage.getItem('access_token') || '')
+            if (role === 'ADM') return api.get('/churches')
+            return api.get('/churches/mine')
+          })(),
           api.get('/orders?page=1&limit=50'), // Get more orders to find pending ones
         ])
         setCategories(cats.data)
