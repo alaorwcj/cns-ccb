@@ -144,6 +144,9 @@ export default function OrdersList() {
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">Igreja: {o.church_name || `#${o.church_id}`}</div>
               <div className="text-sm text-gray-600 dark:text-gray-300">Cidade: {o.church_city || '-'}</div>
+              <div className="text-sm text-gray-800 dark:text-gray-200 mt-2 font-semibold">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                (o.items || []).reduce((acc: number, it: any) => acc + Number(it.subtotal || it.unit_price || 0), 0)
+              )}</div>
               {/* Items list removed from compact card view; use 'Ver' para detalhes */}
             </div>
           ))}
@@ -159,13 +162,14 @@ export default function OrdersList() {
               <th className="p-3">Status</th>
               {/* Coluna 'Itens' removida conforme solicitação */}
               <th className="p-3">Data</th>
+              <th className="p-3">Total</th>
               <th className="p-3">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {orders.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-gray-500 dark:text-gray-400">Nenhum pedido encontrado</td>
+                <td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">Nenhum pedido encontrado</td>
               </tr>
             )}
             {filteredOrders.map((o: any) => (
@@ -178,6 +182,9 @@ export default function OrdersList() {
                 <td className="p-3 text-xs text-gray-600 dark:text-gray-300">
                   {new Date(o.created_at).toLocaleDateString('pt-BR')}
                 </td>
+                <td className="p-3 font-semibold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                  (o.items || []).reduce((acc: number, it: any) => acc + Number(it.subtotal || it.unit_price || 0), 0)
+                )}</td>
                 <td className="p-3">
                   <div className="flex gap-2">
                     <button className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600 text-xs" onClick={() => openViewOrder(o)}>Ver</button>
