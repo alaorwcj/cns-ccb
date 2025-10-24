@@ -144,7 +144,7 @@ export default function OrdersList() {
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">Igreja: {o.church_name || `#${o.church_id}`}</div>
               <div className="text-sm text-gray-600 dark:text-gray-300">Cidade: {o.church_city || '-'}</div>
-              <div className="text-sm text-gray-800 dark:text-gray-200 mt-2 font-semibold">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+              <div className="text-sm text-right text-indigo-600 dark:text-indigo-400 mt-2 font-semibold">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
                 (o.items || []).reduce((acc: number, it: any) => acc + Number(it.subtotal || it.unit_price || 0), 0)
               )}</div>
               {/* Items list removed from compact card view; use 'Ver' para detalhes */}
@@ -162,7 +162,7 @@ export default function OrdersList() {
               <th className="p-3">Status</th>
               {/* Coluna 'Itens' removida conforme solicitação */}
               <th className="p-3">Data</th>
-              <th className="p-3">Total</th>
+              <th className="p-3 text-right">Total</th>
               <th className="p-3">Ações</th>
             </tr>
           </thead>
@@ -182,7 +182,7 @@ export default function OrdersList() {
                 <td className="p-3 text-xs text-gray-600 dark:text-gray-300">
                   {new Date(o.created_at).toLocaleDateString('pt-BR')}
                 </td>
-                <td className="p-3 font-semibold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                <td className="p-3 font-semibold text-right text-indigo-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
                   (o.items || []).reduce((acc: number, it: any) => acc + Number(it.subtotal || it.unit_price || 0), 0)
                 )}</td>
                 <td className="p-3">
@@ -285,7 +285,7 @@ export default function OrdersList() {
 
             {/* total do pedido (soma de subtotais quando disponível) */}
             {viewOrder.items && viewOrder.items.length > 0 && (
-              <div className="mt-2 mb-2 font-semibold">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+              <div className="mt-2 mb-2 font-semibold text-right text-indigo-600">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
                 viewOrder.items.reduce((acc: number, it: any) => acc + (Number(it.subtotal || (it.unit_price || 0)) ), 0)
               )}</div>
             )}
