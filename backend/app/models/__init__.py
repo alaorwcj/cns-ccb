@@ -5,3 +5,4 @@ from .product import Product
 from .order import Order, OrderItem, OrderStatus
 from .stock_movement import StockMovement, MovementType
 from .password_reset import PasswordReset
+from .audit_log import AuditLog, AuditAction, AuditResource

@@ -1,12 +1,12 @@
 FROM node:20-bullseye
 WORKDIR /app
 COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
-# Avoid installing optional native modules that may not exist for the runtime platform
-ENV NPM_CONFIG_OPTIONAL=false
-# Install exact deps from lockfile for reproducible builds
+# Allow optional native modules so esbuild and other native binaries are installed in the image
+ENV NPM_CONFIG_OPTIONAL=true
+# Install exact deps from lockfile for reproducible builds (including optional deps)
 RUN npm ci --silent
-# Ensure rollup's optional native binary is present to avoid runtime "Cannot find module @rollup/rollup-linux-x64-gnu" errors
-RUN npm install @rollup/rollup-linux-x64-gnu --no-save --silent || true
+# Ensure rollup and esbuild native binaries are present to avoid runtime missing-module errors
+RUN npm install @rollup/rollup-linux-x64-gnu @esbuild/linux-x64 --no-save --silent || true
 COPY . .
 EXPOSE 5173
 COPY entrypoint.sh /usr/local/bin/frontend-entrypoint.sh

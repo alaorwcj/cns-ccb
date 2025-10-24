@@ -77,14 +77,24 @@ except Exception as e:
     print(f"Database check/restore failed: {e}")
 PY
 
+# Create tables (import models first so metadata includes all tables)
+python - <<'PY'
+from app.db.base import Base
+from app.db.session import engine
+# Import application models so they are registered on Base.metadata
+import app.models  # noqa: F401
+
+Base.metadata.create_all(bind=engine)
+PY
+
 # Auto-generate initial migration if no revision files exist (ignore .gitkeep)
-if ! find migrations/versions -maxdepth 1 -name "*.py" | grep -q .; then
-  echo "No Alembic revision files found. Autogenerating initial migration..."
-  alembic revision --autogenerate -m "init"
-fi
+# if ! find migrations/versions -maxdepth 1 -name "*.py" | grep -q .; then
+#   echo "No Alembic revision files found. Autogenerating initial migration..."
+#   alembic revision --autogenerate -m "init"
+# fi
 
 # Migrate to head
-alembic upgrade head
+# alembic upgrade head
 
 # Bootstrap seed (admin user if ADMIN_EMAIL/ADMIN_PASSWORD provided)
 python -m app.bootstrap || true
