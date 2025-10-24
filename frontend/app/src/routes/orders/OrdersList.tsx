@@ -139,7 +139,7 @@ export default function OrdersList() {
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">Igreja: {o.church_name || `#${o.church_id}`}</div>
               <div className="text-sm text-gray-600 dark:text-gray-300">Cidade: {o.church_city || '-'}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Itens: {o.items?.slice(0,3).map((it:any)=>it.product?.name||it.product_id).join(', ')}</div>
+              {/* Items list removed from compact card view; use 'Ver' para detalhes */}
             </div>
           ))}
         </div>
@@ -152,7 +152,7 @@ export default function OrdersList() {
               <th className="p-3">Igreja</th>
               <th className="p-3">Cidade</th>
               <th className="p-3">Status</th>
-              <th className="p-3">Itens</th>
+              {/* Coluna 'Itens' removida conforme solicitação */}
               <th className="p-3">Data</th>
               <th className="p-3">Ações</th>
             </tr>
@@ -160,7 +160,7 @@ export default function OrdersList() {
           <tbody className="divide-y">
             {orders.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">Nenhum pedido encontrado</td>
+                <td colSpan={6} className="p-8 text-center text-gray-500 dark:text-gray-400">Nenhum pedido encontrado</td>
               </tr>
             )}
             {filteredOrders.map((o: any) => (
@@ -169,16 +169,7 @@ export default function OrdersList() {
                 <td className="p-3 font-medium min-w-0"><div className="truncate">{o.church_name || `Igreja #${o.church_id}`}</div></td>
                 <td className="p-3 text-gray-600 dark:text-gray-300 min-w-0"><div className="truncate">{o.church_city || '-'}</div></td>
                 <td className="p-3"><StatusBadge status={o.status} /></td>
-                <td className="p-3 min-w-0">
-                  <div className="text-xs space-y-1">
-                    {o.items?.slice(0, 3).map((it: any, idx: number) => (
-                      <div key={idx}>{it.product?.name || `Produto #${it.product_id}`} × {it.qty}</div>
-                    ))}
-                    {o.items?.length > 3 && (
-                      <div className="text-gray-500 dark:text-gray-400">+ {o.items.length - 3} mais...</div>
-                    )}
-                  </div>
-                </td>
+                {/* Coluna de itens removida da listagem; detalhes via modal */}
                 <td className="p-3 text-xs text-gray-600 dark:text-gray-300">
                   {new Date(o.created_at).toLocaleDateString('pt-BR')}
                 </td>
