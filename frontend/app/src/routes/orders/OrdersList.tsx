@@ -115,6 +115,29 @@ export default function OrdersList() {
     navigate(`/orders/${o.id}/edit`)
   }
 
+  // Open view modal but ensure item product names are available.
+  const openViewOrder = async (o: any) => {
+    // if items already include product object with name, just open
+    const hasProductNames = o.items && o.items.every((it: any) => it.product && it.product.name)
+    if (hasProductNames) {
+      setViewOrder(o)
+      return
+    }
+
+    // try to fetch products and map names by id (best-effort)
+    try {
+      // request a reasonably large page to include all products used by orders
+      const r = await api.get('/products?limit=1000')
+      const products = Array.isArray(r.data) ? r.data : (r.data.data || [])
+      const map = new Map(products.map((p: any) => [p.id, p]))
+      const itemsWithProduct = (o.items || []).map((it: any) => ({ ...it, product: map.get(it.product_id) }))
+      setViewOrder({ ...o, items: itemsWithProduct })
+    } catch (e) {
+      // fallback: open as-is
+      setViewOrder(o)
+    }
+  }
+
   const filteredOrders = filterStatus === 'all' ? orders : orders.filter((o: any) => o.status === filterStatus)
 
   return (
@@ -175,7 +198,7 @@ export default function OrdersList() {
                 </td>
                 <td className="p-3">
                   <div className="flex gap-2">
-                    <button className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600 text-xs" onClick={() => setViewOrder(o)}>Ver</button>
+                    <button className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600 text-xs" onClick={() => openViewOrder(o)}>Ver</button>
                     {o.status === 'PENDENTE' && o.requester_id === Number(localStorage.getItem('user_id')) && (
                       <button className="px-2 py-1 rounded bg-white dark:bg-gray-700 dark:text-white border dark:border-gray-600 text-xs" onClick={() => startEdit(o)}>Editar</button>
                     )}
@@ -252,16 +275,32 @@ export default function OrdersList() {
       {viewOrder && (
         <Modal title={`Pedido #${viewOrder.id}`} onClose={() => setViewOrder(null)}>
           <div>
-            <div className="mb-2"><strong>Igreja:</strong> {viewOrder.church?.name}</div>
+            <div className="mb-2 text-sm"><strong>Resumo do Pedido</strong></div>
+            <div className="mb-2"><strong>Número:</strong> {viewOrder.id}</div>
+            <div className="mb-2"><strong>Igreja:</strong> {viewOrder.church?.name || `Igreja #${viewOrder.church_id}`}</div>
             <div className="mb-2"><strong>Status:</strong> {viewOrder.status}</div>
+
             <div className="mb-2">
               <strong>Itens:</strong>
               <ul className="list-disc ml-6">
                 {viewOrder.items?.map((it: any) => (
-                  <li key={it.id}>{it.product?.name || it.product_id} × {it.qty} — R$ {it.unit_price}</li>
+                  <li key={it.id} className="text-sm">
+                    {it.product?.name ? it.product.name : `Produto #${it.product_id}`} × {it.qty}
+                    {it.unit_price != null && (
+                      <span className="text-xs text-gray-600"> — {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(it.unit_price))}</span>
+                    )}
+                  </li>
                 ))}
               </ul>
             </div>
+
+            {/* total do pedido (soma de subtotais quando disponível) */}
+            {viewOrder.items && viewOrder.items.length > 0 && (
+              <div className="mt-2 mb-2 font-semibold">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                viewOrder.items.reduce((acc: number, it: any) => acc + (Number(it.subtotal || (it.unit_price || 0)) ), 0)
+              )}</div>
+            )}
+
             <div className="flex gap-2 justify-end">
               <button className="px-3 py-1 border rounded" onClick={() => setViewOrder(null)}>Fechar</button>
             </div>
