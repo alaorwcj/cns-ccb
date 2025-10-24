@@ -259,7 +259,7 @@ export default function OrdersList() {
           <div>
             <div className="mb-2 text-sm"><strong>Resumo do Pedido</strong></div>
             <div className="mb-2"><strong>Número:</strong> {viewOrder.id}</div>
-            <div className="mb-2"><strong>Igreja:</strong> {viewOrder.church?.name || `Igreja #${viewOrder.church_id}`}</div>
+            <div className="mb-2"><strong>Igreja:</strong> {viewOrder.church_name || viewOrder.church?.name || `Igreja #${viewOrder.church_id}`}</div>
             <div className="mb-2"><strong>Status:</strong> {viewOrder.status}</div>
 
             <div className="mb-2">
