@@ -144,7 +144,7 @@ export default function OrdersList() {
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">Igreja: {o.church_name || `#${o.church_id}`}</div>
               <div className="text-sm text-gray-600 dark:text-gray-300">Cidade: {o.church_city || '-'}</div>
-              <div className="text-sm text-right text-indigo-600 dark:text-indigo-400 mt-2 font-semibold">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+              <div className="text-sm sm:text-right text-left text-indigo-600 dark:text-indigo-400 mt-2 font-semibold">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
                 (o.items || []).reduce((acc: number, it: any) => acc + Number(it.subtotal || it.unit_price || 0), 0)
               )}</div>
               {/* Items list removed from compact card view; use 'Ver' para detalhes */}
