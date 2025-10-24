@@ -25,6 +25,7 @@ class OrderUpdate(BaseModel):
 class OrderItemRead(BaseModel):
     id: int
     product_id: int
+    product_name: Optional[str] = None
     qty: int
     unit_price: Decimal
     subtotal: Decimal

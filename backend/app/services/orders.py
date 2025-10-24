@@ -14,7 +14,12 @@ from app.models.stock_movement import MovementType
 
 
 def list_orders_for_user(db: Session, *, user: User, is_admin: bool, page: int = 1, limit: int = 10) -> List[Order]:
-    stmt = select(Order).options(selectinload(Order.church), selectinload(Order.items)).order_by(Order.created_at.desc())
+    # ensure we also load related product objects for each order item so callers can include product.name
+    from app.models.order import OrderItem
+    stmt = select(Order).options(
+        selectinload(Order.church),
+        selectinload(Order.items).selectinload(OrderItem.product),
+    ).order_by(Order.created_at.desc())
     if not is_admin:
         stmt = stmt.where(Order.requester_id == user.id)
     stmt = stmt.offset((page - 1) * limit).limit(limit)

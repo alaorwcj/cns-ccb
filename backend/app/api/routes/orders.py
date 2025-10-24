@@ -36,6 +36,12 @@ def get_orders(
     for order in orders:
         order.church_name = order.church.name if order.church else None
         order.church_city = order.church.city if order.church else None
+        # also add product_name to each item (if product relation loaded)
+        for it in getattr(order, 'items', []) or []:
+            try:
+                it.product_name = it.product.name if it.product else None
+            except Exception:
+                it.product_name = None
     return OrderListResponse(data=orders, total=total, page=page, limit=limit)
 
 
@@ -71,6 +77,12 @@ def get_order(order_id: int, db: Session = Depends(db_dep), payload: dict = Depe
     # Add church_name and church_city
     order.church_name = order.church.name if order.church else None
     order.church_city = order.church.city if order.church else None
+    # add product_name to each item for convenience
+    for it in getattr(order, 'items', []) or []:
+        try:
+            it.product_name = it.product.name if it.product else None
+        except Exception:
+            it.product_name = None
     
     return order
 
