@@ -33,6 +33,7 @@ export default function OrderCreate() {
   const [existingOrder, setExistingOrder] = useState<any | null>(null)
 
   const userId = decodeUserIdFromJWT(localStorage.getItem('access_token') || '')
+  const role = decodeRoleFromJWT(localStorage.getItem('access_token') || '')
 
   useEffect(() => {
     (async () => {
@@ -48,9 +49,11 @@ export default function OrderCreate() {
           })(),
           api.get('/orders?page=1&limit=50'), // Get more orders to find pending ones
         ])
-        setCategories(cats.data)
-        setProducts(prods.data.data || [])
-        setChurches(chs.data)
+  setCategories(cats.data)
+  setProducts(prods.data.data || [])
+  // normalize churches payload (some endpoints return array directly)
+  const fetchedChurches = chs.data?.data ?? chs.data
+  setChurches(fetchedChurches || [])
 
         // Check if user has a pending order
         const userOrders = ordersRes.data.data || []
@@ -88,6 +91,13 @@ export default function OrderCreate() {
         .map(([pid, qty]) => ({ product_id: Number(pid), qty: Number(qty) }))
         .filter((it) => it.qty > 0)
       if (!churchId) throw new Error('Selecione a igreja')
+      // frontend guard: ensure non-admin users can only pick assigned churches
+      if (role !== 'ADM') {
+        const allowedIds = (churches || []).map((c: any) => c.id)
+        if (!allowedIds.includes(Number(churchId))) {
+          throw new Error('Igreja inválida para o seu usuário')
+        }
+      }
       if (chosen.length === 0) throw new Error('Selecione ao menos 1 item')
 
       if (existingOrder) {
@@ -125,6 +135,9 @@ export default function OrderCreate() {
           <option value="">Selecione a igreja</option>
           {churches.map((c) => <option key={c.id} value={c.id}>{c.name} - {c.city}</option>)}
         </select>
+        {role !== 'ADM' && (churches || []).length === 0 && (
+          <div className="text-sm text-yellow-600">Você não possui igrejas atribuídas.</div>
+        )}
         <button className="bg-blue-600 text-white rounded px-3 py-1" onClick={submit}>
           {existingOrder ? 'Atualizar Pedido' : 'Confirmar Pedido'}
         </button>
