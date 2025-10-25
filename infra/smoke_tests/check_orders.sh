@@ -13,16 +13,16 @@ TOK_JSON=$(curl -s -X POST "$API/auth/login" -H "Content-Type: application/json"
 TOK=$(printf "%s" "$TOK_JSON" | python3 -c "import sys,json
 try:
  d=json.load(sys.stdin)
- print(d.get('access_token','') or d.get('access_token'))
+ print(d.get('access') or d.get('access_token') or d.get('token') or '')
 except Exception:
  print('')")
 if [ -z "$TOK" ]; then
   echo "[smoke] JSON login failed, trying form login..."
   TOK_FORM=$(curl -s -X POST "$API/auth/login" -d "username=$USERNAME" -d "password=$PASSWORD" || true)
-  TOK=$(printf "%s" "$TOK_FORM" | python3 -c "import sys,json
+    TOK=$(printf "%s" "$TOK_FORM" | python3 -c "import sys,json
 try:
  d=json.load(sys.stdin)
- print(d.get('access_token',''))
+ print(d.get('access') or d.get('access_token') or d.get('token') or '')
 except Exception:
  print('')")
 fi
