@@ -30,7 +30,6 @@ services:
       DB_PASSWORD: ccb
       DB_NAME: ccb
     extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy
@@ -65,7 +64,6 @@ services:
       DB_PASSWORD: ccb
       DB_NAME: ccb
     extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy
