@@ -24,7 +24,6 @@ services:
       DATABASE_URL: "postgresql+psycopg2://ccb:ccb@db:5432/ccb"
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: changeme
-      DB_HOST: db
       DB_PORT: 5432
       DB_USER: ccb
       DB_PASSWORD: ccb
@@ -57,7 +56,6 @@ services:
       DATABASE_URL: "postgresql+psycopg2://ccb:ccb@db:5432/ccb"
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: changeme
-      DB_HOST: db
       DB_PORT: 5432
       DB_USER: ccb
       DB_PASSWORD: ccb
