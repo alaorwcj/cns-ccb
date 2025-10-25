@@ -20,10 +20,11 @@ services:
     build: ../backend
     env_file: ../backend/.env
     environment:
-      DATABASE_URL: "postgresql+psycopg2://ccb:ccb@host.docker.internal:5432/ccb"
+      # Prefer using the compose-managed `db` service so api talks to the containerized DB
+      DATABASE_URL: "postgresql+psycopg2://ccb:ccb@db:5432/ccb"
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: changeme
-      DB_HOST: host.docker.internal
+      DB_HOST: db
       DB_PORT: 5432
       DB_USER: ccb
       DB_PASSWORD: ccb
@@ -55,10 +56,10 @@ services:
     build: ../backend
     env_file: ../backend/.env
     environment:
-      DATABASE_URL: "postgresql+psycopg2://ccb:ccb@host.docker.internal:5432/ccb"
+      DATABASE_URL: "postgresql+psycopg2://ccb:ccb@db:5432/ccb"
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: changeme
-      DB_HOST: host.docker.internal
+      DB_HOST: db
       DB_PORT: 5432
       DB_USER: ccb
       DB_PASSWORD: ccb
