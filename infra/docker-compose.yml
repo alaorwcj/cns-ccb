@@ -24,6 +24,7 @@ services:
       DATABASE_URL: "postgresql+psycopg2://ccb:ccb@host.docker.internal:5433/ccb"
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: changeme
+      DB_HOST: host.docker.internal
       DB_PORT: 5433
       DB_USER: ccb
       DB_PASSWORD: ccb
@@ -58,6 +59,7 @@ services:
       DATABASE_URL: "postgresql+psycopg2://ccb:ccb@host.docker.internal:5433/ccb"
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: changeme
+      DB_HOST: host.docker.internal
       DB_PORT: 5433
       DB_USER: ccb
       DB_PASSWORD: ccb
