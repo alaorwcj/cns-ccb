@@ -40,15 +40,15 @@ services:
     restart: unless-stopped
 
   web:
-    build: ../frontend/app
+    build:
+      context: ../frontend/app
+      args:
+        VITE_API_BASE_URL: http://api:8000
     ports:
-      - "8080:5173"
-    command: npm run dev -- --host
+      - "8080:80"
     environment:
-      VITE_API_BASE_URL: http://localhost:8000
-    volumes:
-      - ../frontend/app:/app
-      - web_node_modules:/app/node_modules
+      VITE_API_BASE_URL: http://api:8000
+    # Serve static build via nginx. Do NOT mount source to avoid overriding built files.
     restart: unless-stopped
 
   api-test:
