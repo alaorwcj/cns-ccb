@@ -21,8 +21,8 @@ def generate_order_receipt_pdf(db: Session, order: Order) -> bytes:
 
     # Helper function to draw a single receipt page
     def draw_receipt_page(via_label: str):
-        # Blue header bar
-        c.setFillColor(colors.HexColor('#1E88E5'))
+        # Gray header bar (matching #d3d3d3 from image)
+        c.setFillColor(colors.HexColor('#d3d3d3'))
         c.rect(0, height - 60, width, 60, fill=True, stroke=False)
         
         # Logo (left side of header)
@@ -34,8 +34,8 @@ def generate_order_receipt_pdf(db: Session, order: Order) -> bytes:
             except Exception:
                 pass
         
-        # Company info (left side of header)
-        c.setFillColor(colors.white)
+        # Company info (left side of header) - black text on gray
+        c.setFillColor(colors.black)
         c.setFont("Helvetica-Bold", 11)
         c.drawString(90, height - 25, "CNS - CCB")
         c.setFont("Helvetica", 8)
@@ -52,10 +52,10 @@ def generate_order_receipt_pdf(db: Session, order: Order) -> bytes:
         
         y = height - 90
         
-        # VIA label in box
-        c.setFillColor(colors.HexColor('#E3F2FD'))
+        # VIA label in box (light gray background)
+        c.setFillColor(colors.HexColor('#f0f0f0'))
         c.rect(30, y - 5, 150, 25, fill=True, stroke=True)
-        c.setFillColor(colors.HexColor('#1E88E5'))
+        c.setFillColor(colors.black)
         c.setFont("Helvetica-Bold", 12)
         c.drawString(40, y + 5, f"VIA: {via_label}")
         c.setFillColor(colors.black)
@@ -63,7 +63,7 @@ def generate_order_receipt_pdf(db: Session, order: Order) -> bytes:
         y -= 40
         
         # Left column: Delivery To
-        c.setFillColor(colors.HexColor('#1E88E5'))
+        c.setFillColor(colors.black)
         c.setFont("Helvetica-Bold", 10)
         c.drawString(30, y, "Entregar para")
         c.setFillColor(colors.black)
@@ -116,9 +116,9 @@ def generate_order_receipt_pdf(db: Session, order: Order) -> bytes:
         
         y -= 35
         
-        # Table header
+        # Table header (gray like #d3d3d3)
         table_y = y
-        c.setFillColor(colors.HexColor('#B3E5FC'))
+        c.setFillColor(colors.HexColor('#d3d3d3'))
         c.rect(30, table_y - 20, width - 60, 20, fill=True, stroke=True)
         
         c.setFillColor(colors.black)
@@ -221,8 +221,8 @@ def generate_batch_receipts_pdf(db: Session, orders: List[Order]) -> bytes:
     for order in orders:
         # Helper function to draw a single receipt page for this order
         def draw_receipt_page(via_label: str):
-            # Blue header bar
-            c.setFillColor(colors.HexColor('#1E88E5'))
+            # Gray header bar (matching #d3d3d3 from image)
+            c.setFillColor(colors.HexColor('#d3d3d3'))
             c.rect(0, height - 60, width, 60, fill=True, stroke=False)
             
             # Logo (left side of header)
@@ -234,8 +234,8 @@ def generate_batch_receipts_pdf(db: Session, orders: List[Order]) -> bytes:
                 except Exception:
                     pass
             
-            # Company info (left side of header)
-            c.setFillColor(colors.white)
+            # Company info (left side of header) - black text on gray
+            c.setFillColor(colors.black)
             c.setFont("Helvetica-Bold", 11)
             c.drawString(90, height - 25, "CNS - CCB")
             c.setFont("Helvetica", 8)
@@ -252,10 +252,10 @@ def generate_batch_receipts_pdf(db: Session, orders: List[Order]) -> bytes:
             
             y = height - 90
             
-            # VIA label in box
-            c.setFillColor(colors.HexColor('#E3F2FD'))
+            # VIA label in box (light gray background)
+            c.setFillColor(colors.HexColor('#f0f0f0'))
             c.rect(30, y - 5, 150, 25, fill=True, stroke=True)
-            c.setFillColor(colors.HexColor('#1E88E5'))
+            c.setFillColor(colors.black)
             c.setFont("Helvetica-Bold", 12)
             c.drawString(40, y + 5, f"VIA: {via_label}")
             c.setFillColor(colors.black)
@@ -263,7 +263,7 @@ def generate_batch_receipts_pdf(db: Session, orders: List[Order]) -> bytes:
             y -= 40
             
             # Left column: Delivery To
-            c.setFillColor(colors.HexColor('#1E88E5'))
+            c.setFillColor(colors.black)
             c.setFont("Helvetica-Bold", 10)
             c.drawString(30, y, "Entregar para")
             c.setFillColor(colors.black)
@@ -316,9 +316,9 @@ def generate_batch_receipts_pdf(db: Session, orders: List[Order]) -> bytes:
             
             y -= 35
             
-            # Table header
+            # Table header (gray like #d3d3d3)
             table_y = y
-            c.setFillColor(colors.HexColor('#B3E5FC'))
+            c.setFillColor(colors.HexColor('#d3d3d3'))
             c.rect(30, table_y - 20, width - 60, 20, fill=True, stroke=True)
             
             c.setFillColor(colors.black)
