@@ -4,14 +4,9 @@ services:
     env_file: ../backend/.env
     environment:
       # Use host Postgres (restored on the host) via host.docker.internal
-      DATABASE_URL: "postgresql+psycopg2://ccb:ccb@host.docker.internal:5433/ccb"
-      ADMIN_EMAIL: admin@example.com
-      ADMIN_PASSWORD: changeme
-      DB_HOST: host.docker.internal
-      DB_PORT: 5433
-      DB_USER: ccb
-      DB_PASSWORD: ccb
-      DB_NAME: ccb
+      DATABASE_URL: "postgresql+psycopg2://${DB_USER:-ccb}:${DB_PASSWORD}@host.docker.internal:5433/${DB_NAME:-ccb}"
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -38,14 +33,9 @@ services:
     build: ../backend
     env_file: ../backend/.env
     environment:
-      DATABASE_URL: "postgresql+psycopg2://ccb:ccb@host.docker.internal:5433/ccb"
-      ADMIN_EMAIL: admin@example.com
-      ADMIN_PASSWORD: changeme
-      DB_HOST: host.docker.internal
-      DB_PORT: 5433
-      DB_USER: ccb
-      DB_PASSWORD: ccb
-      DB_NAME: ccb
+      DATABASE_URL: "postgresql+psycopg2://${DB_USER:-ccb}:${DB_PASSWORD}@host.docker.internal:5433/${DB_NAME:-ccb}"
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     working_dir: /app
