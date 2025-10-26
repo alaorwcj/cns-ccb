@@ -55,15 +55,15 @@ sleep 30
 curl http://localhost:8000/health
 ```
 
-# 🔧 Configurações
+### 🔧 Configurações
 
 #### Credenciais Padrão
 - **Email**: `admin@example.com`
 - **Senha**: `changeme`
 
 #### Portas Utilizadas
-- **Frontend**: `http://162.220.11.4:8080` (public) / `http://localhost:8080` (host)
-- **API**: `http://162.220.11.4:8000` (public) / `http://localhost:8000` (host)
+- **Frontend**: `http://localhost:5173`
+- **API**: `http://localhost:8000`
 - **Banco PostgreSQL**: `localhost:5432`
 
 #### Arquivos de Configuração
@@ -107,25 +107,7 @@ cd infra && docker compose down
 cd infra && docker compose down -v
 ```
 
-### � Firewall e Acesso Externo
-
-Se for necessário permitir acesso externo ao frontend/API, execute (no host):
-
-```bash
-# Abrir portas temporariamente
-sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 8000 -j ACCEPT
-
-# Instalar iptables-persistent para persistir regras após reboot
-sudo apt update
-sudo apt install -y iptables-persistent
-sudo iptables-save | sudo tee /etc/iptables/rules.v4
-
-# Verificar status do serviço de persistência
-sudo systemctl status netfilter-persistent
-```
-
-### �🔍 Verificação do Deploy
+### 🔍 Verificação do Deploy
 
 Após o setup, verifique:
 
@@ -139,7 +121,7 @@ Após o setup, verifique:
      -d '{"username":"admin@example.com","password":"changeme"}'
    ```
 
-3. **Frontend**: Acesse `http://162.220.11.4:8080` (ou `http://localhost:8080` no host)
+3. **Frontend**: Acesse `http://localhost:5173`
    - Deve carregar a interface de login
 
 ### 🐛 Troubleshooting

@@ -22,9 +22,14 @@ class OrderUpdate(BaseModel):
     items: Optional[List[OrderItemCreate]] = None
 
 
+class BatchReceiptsRequest(BaseModel):
+    order_ids: List[int]
+
+
 class OrderItemRead(BaseModel):
     id: int
     product_id: int
+    product_name: Optional[str] = None
     qty: int
     unit_price: Decimal
     subtotal: Decimal

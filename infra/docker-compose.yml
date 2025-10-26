@@ -20,14 +20,17 @@ services:
     build: ../backend
     env_file: ../backend/.env
     environment:
-      DATABASE_URL: postgresql+psycopg2://ccb:ccb@db:5432/ccb
+      # Use host Postgres (restored on the host) via host.docker.internal
+      DATABASE_URL: "postgresql+psycopg2://ccb:ccb@host.docker.internal:5433/ccb"
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: changeme
-      DB_HOST: db
-      DB_PORT: 5432
+      DB_HOST: host.docker.internal
+      DB_PORT: 5433
       DB_USER: ccb
       DB_PASSWORD: ccb
       DB_NAME: ccb
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy
@@ -38,24 +41,33 @@ services:
     restart: unless-stopped
 
   web:
-    build: ../frontend/app
+    build:
+      context: ../frontend/app
+      args:
+        # Browser clients need a public/host URL (api:8000 resolves only inside docker network).
+        # Set to the server's public IP so the built JS calls the reachable API endpoint.
+        VITE_API_BASE_URL: http://162.220.11.4:8000
     ports:
-      - "8080:5173"
-    command: npm run dev -- --host
+      - "8080:80"
     environment:
       VITE_API_BASE_URL: http://162.220.11.4:8000
-    volumes:
-      - ../frontend/app:/app
-      - /app/node_modules
+    # Serve static build via nginx. Do NOT mount source to avoid overriding built files.
     restart: unless-stopped
 
   api-test:
     build: ../backend
     env_file: ../backend/.env
     environment:
-      DATABASE_URL: postgresql+psycopg2://ccb:ccb@db:5432/ccb
+      DATABASE_URL: "postgresql+psycopg2://ccb:ccb@host.docker.internal:5433/ccb"
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: changeme
+      DB_HOST: host.docker.internal
+      DB_PORT: 5433
+      DB_USER: ccb
+      DB_PASSWORD: ccb
+      DB_NAME: ccb
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy
@@ -66,3 +78,4 @@ services:
 
 volumes:
   dbdata:
+  web_node_modules:

@@ -1,15 +1,22 @@
-FROM node:20-bullseye
+FROM node:20-bullseye AS build
 WORKDIR /app
 COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
-# Avoid installing optional native modules that may not exist for the runtime platform
-ENV NPM_CONFIG_OPTIONAL=false
-# Install exact deps from lockfile for reproducible builds
+ENV NPM_CONFIG_OPTIONAL=true
 RUN npm ci --silent
-# Ensure rollup's optional native binary is present to avoid runtime "Cannot find module @rollup/rollup-linux-x64-gnu" errors
-RUN npm install @rollup/rollup-linux-x64-gnu --no-save --silent || true
+# Ensure native binaries for esbuild/rollup are available where required
+RUN npm install @rollup/rollup-linux-x64-gnu @esbuild/linux-x64 --no-save --silent || true
 COPY . .
-EXPOSE 5173
-COPY entrypoint.sh /usr/local/bin/frontend-entrypoint.sh
-RUN chmod +x /usr/local/bin/frontend-entrypoint.sh
-ENTRYPOINT ["/usr/local/bin/frontend-entrypoint.sh"]
-CMD ["npm", "run", "dev", "--", "--host"]
+
+# Allow overriding API base at build time
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
+# Build production static assets
+RUN npm run build
+
+FROM nginx:alpine AS runtime
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+STOPSIGNAL SIGTERM
+CMD ["nginx", "-g", "daemon off;"]

@@ -33,5 +33,3 @@ From `infra/`:
 ```bash
 docker compose up -d --build
 ```
-
-Note: In the current POC deployment the frontend is exposed on `http://162.220.11.4:8080` and the API on `http://162.220.11.4:8000` (both are reachable as `http://localhost:<port>` when accessed from the host). See `README_DEPLOY.md` for deploy and firewall steps.

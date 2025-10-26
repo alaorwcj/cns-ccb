@@ -8,7 +8,7 @@ from app.api.deps import db_dep, require_role
 from app.core.security import get_current_user_token
 from app.models.order import Order, OrderStatus
 from app.models.user import UserRole
-from app.schemas.order import OrderCreate, OrderRead, OrderUpdate, OrderListResponse
+from app.schemas.order import OrderCreate, OrderRead, OrderUpdate, OrderListResponse, BatchReceiptsRequest
 from app.services.orders import list_orders_for_user, create_order, approve_order, deliver_order
 from app.services.orders import update_order
 from app.services.receipt import generate_order_receipt_pdf
@@ -36,12 +36,28 @@ def get_orders(
     for order in orders:
         order.church_name = order.church.name if order.church else None
         order.church_city = order.church.city if order.church else None
+        # also add product_name to each item (if product relation loaded)
+        for it in getattr(order, 'items', []) or []:
+            try:
+                it.product_name = it.product.name if it.product else None
+            except Exception:
+                it.product_name = None
     return OrderListResponse(data=orders, total=total, page=page, limit=limit)
 
 
 @router.post("", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
 def post_order(data: OrderCreate, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
     user_id = int(payload.get("user_id"))
+    is_admin = payload.get("role") == UserRole.ADM.value
+    # ensure user is allowed to create orders for the chosen church
+    from app.models.user import User as UserModel, user_church
+    from sqlalchemy import select, func
+    user = db.get(UserModel, user_id)
+    if not is_admin:
+        # verify membership directly in DB (don't rely on relationship being pre-loaded)
+        cnt = db.scalar(select(func.count()).select_from(user_church).where(user_church.c.user_id == user_id, user_church.c.church_id == data.church_id))
+        if not cnt:
+            raise HTTPException(status_code=403, detail="Not allowed to create orders for this church")
     try:
         items = [(it.product_id, it.qty) for it in data.items]
         order = create_order(db, requester_id=user_id, church_id=data.church_id, items=items)
@@ -64,13 +80,21 @@ def get_order(order_id: int, db: Session = Depends(db_dep), payload: dict = Depe
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    # Allow if admin or the requester
+    # Allow if admin, the requester, or a user assigned to the church
     if not is_admin and order.requester_id != user_id:
-        raise HTTPException(status_code=403, detail="Not allowed")
+        # check church membership
+        if not order.church or not any(u.id == user_id for u in order.church.users):
+            raise HTTPException(status_code=403, detail="Not allowed")
     
     # Add church_name and church_city
     order.church_name = order.church.name if order.church else None
     order.church_city = order.church.city if order.church else None
+    # add product_name to each item for convenience
+    for it in getattr(order, 'items', []) or []:
+        try:
+            it.product_name = it.product.name if it.product else None
+        except Exception:
+            it.product_name = None
     
     return order
 
@@ -124,15 +148,25 @@ def deliver(order_id: int, db: Session = Depends(db_dep), _adm=Depends(require_r
 
 @router.put("/{order_id}", response_model=OrderRead)
 def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
-    # only requester can update while PENDENTE
+    # Allow requester or ADM to update while PENDENTE
     user_id = int(payload.get("user_id"))
+    user_role = payload.get("role")
+    is_admin = user_role == UserRole.ADM.value
+    
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if order.requester_id != user_id:
-        raise HTTPException(status_code=403, detail="Not allowed")
+    
+    # Check order status first
     if order.status != OrderStatus.PENDENTE:
         raise HTTPException(status_code=400, detail="Only pending orders can be updated")
+    
+    # Allow update if: (1) ADM, or (2) user belongs to the order's church
+    # Users can now edit any pending order from their assigned churches
+    if not is_admin:
+        if not order.church or not any(u.id == user_id for u in order.church.users):
+            raise HTTPException(status_code=403, detail="Not allowed")
+    
     try:
         return update_order(db, order=order, data=data)
     except ValueError as e:
@@ -158,3 +192,38 @@ def sign_order(order_id: int, db: Session = Depends(db_dep), payload: dict = Dep
     db.commit()
     db.refresh(order)
     return order
+
+
+@router.post("/batch-receipts")
+def batch_receipts(data: BatchReceiptsRequest, db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
+    """Generate a consolidated PDF with receipts for multiple orders (ADM only).
+    
+    Each order will have 2 copies (VIA ADMINISTRAÇÃO and VIA COMPRADOR).
+    """
+    from sqlalchemy.orm import selectinload
+    from sqlalchemy import select
+    from app.services.receipt import generate_batch_receipts_pdf
+    
+    order_ids = data.order_ids
+    
+    if not order_ids:
+        raise HTTPException(status_code=400, detail="No order IDs provided")
+    
+    # Fetch all orders with relationships loaded
+    from app.models.order import OrderItem
+    
+    stmt = select(Order).options(
+        selectinload(Order.church),
+        selectinload(Order.requester),
+        selectinload(Order.signed_by),
+        selectinload(Order.items).selectinload(OrderItem.product)
+    ).where(Order.id.in_(order_ids), Order.status == OrderStatus.ENTREGUE)
+    
+    orders = list(db.scalars(stmt))
+    
+    if not orders:
+        raise HTTPException(status_code=404, detail="No delivered orders found with provided IDs")
+    
+    pdf = generate_batch_receipts_pdf(db, orders)
+    headers = {"Content-Disposition": f"attachment; filename=recibos_lote.pdf"}
+    return Response(content=pdf, media_type="application/pdf", headers=headers)

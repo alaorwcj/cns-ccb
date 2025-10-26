@@ -68,10 +68,9 @@ docker-compose ps
 ### 🔐 Primeiro Acesso - Configuração Inicial
 
 #### 1. Acesso ao Sistema
-- **Frontend (acesso local)**: http://localhost:8080
-- **Frontend (acesso público)**: http://162.220.11.4:8080
-- **Backend API**: http://162.220.11.4:8000  (ou http://localhost:8000 quando acessado diretamente no host)
-- **Documentação API**: http://162.220.11.4:8000/docs
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **Documentação API**: http://localhost:8000/docs
 
 #### 2. Credenciais Iniciais
 - **Email**: admin@example.com
@@ -241,29 +240,6 @@ docker-compose logs web
 # Reconstruir frontend
 docker-compose build web
 docker-compose up -d web
-```
-
-#### **Problema: Acesso externo recusado (ERR_CONNECTION_REFUSED)**
-
-Se o frontend ou API não forem acessíveis externamente, verifique:
-
-- Se o provedor de nuvem tem um firewall / security group bloqueando portas (abra 8080 e 8000)
-- Regras locais do iptables (ex.: aceitar conexões nas portas 8080 e 8000)
-
-Comandos úteis para abrir e persistir regras no host (exemplos utilizados neste POC):
-
-```bash
-# Abrir portas temporariamente
-sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 8000 -j ACCEPT
-
-# Instalar iptables-persistent e salvar regras para persistência
-sudo apt update
-sudo apt install -y iptables-persistent
-sudo iptables-save | sudo tee /etc/iptables/rules.v4
-
-# Verificar que o serviço de persistência está ativado
-sudo systemctl status netfilter-persistent
 ```
 
 #### **Problema: Erro de auditoria**

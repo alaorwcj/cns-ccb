@@ -6,6 +6,11 @@ from app.api.deps import db_dep, require_role
 from app.models.church import Church
 from app.schemas.church import ChurchCreate, ChurchRead
 from app.services.churches import list_churches, list_cities, create_church, update_church, delete_church
+from app.core.security import get_current_user_token
+
+from sqlalchemy.orm import Session
+from app.api.deps import db_dep
+from app.models.user import User as UserModel
 
 router = APIRouter(prefix="/churches", tags=["churches"]) 
 
@@ -18,6 +23,14 @@ def get_churches(db: Session = Depends(db_dep)):
 @router.get("/cities", response_model=List[str])
 def get_cities(db: Session = Depends(db_dep)):
     return list_cities(db)
+
+
+@router.get("/mine", response_model=List[ChurchRead])
+def get_my_churches(db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
+    """Return churches assigned to the current authenticated user."""
+    user_id = int(payload.get("user_id"))
+    user = db.get(UserModel, user_id)
+    return list(user.churches or [])
 
 
 @router.post("", response_model=ChurchRead, status_code=status.HTTP_201_CREATED)
