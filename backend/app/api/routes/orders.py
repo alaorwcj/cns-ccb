@@ -8,7 +8,7 @@ from app.api.deps import db_dep, require_role
 from app.core.security import get_current_user_token
 from app.models.order import Order, OrderStatus
 from app.models.user import UserRole
-from app.schemas.order import OrderCreate, OrderRead, OrderUpdate, OrderListResponse
+from app.schemas.order import OrderCreate, OrderRead, OrderUpdate, OrderListResponse, BatchReceiptsRequest
 from app.services.orders import list_orders_for_user, create_order, approve_order, deliver_order
 from app.services.orders import update_order
 from app.services.receipt import generate_order_receipt_pdf
@@ -195,7 +195,7 @@ def sign_order(order_id: int, db: Session = Depends(db_dep), payload: dict = Dep
 
 
 @router.post("/batch-receipts")
-def batch_receipts(order_ids: List[int], db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
+def batch_receipts(data: BatchReceiptsRequest, db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
     """Generate a consolidated PDF with receipts for multiple orders (ADM only).
     
     Each order will have 2 copies (VIA ADMINISTRAÇÃO and VIA COMPRADOR).
@@ -203,6 +203,8 @@ def batch_receipts(order_ids: List[int], db: Session = Depends(db_dep), _adm=Dep
     from sqlalchemy.orm import selectinload
     from sqlalchemy import select
     from app.services.receipt import generate_batch_receipts_pdf
+    
+    order_ids = data.order_ids
     
     if not order_ids:
         raise HTTPException(status_code=400, detail="No order IDs provided")

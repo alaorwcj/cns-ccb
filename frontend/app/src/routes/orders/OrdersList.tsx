@@ -154,7 +154,7 @@ export default function OrdersList() {
     setPrintingBatch(true)
     try {
       const orderIds = Array.from(selectedOrders)
-      const r = await api.post('/orders/batch-receipts', orderIds, { responseType: 'blob' })
+      const r = await api.post('/orders/batch-receipts', { order_ids: orderIds }, { responseType: 'blob' })
       const blob = new Blob([r.data], { type: 'application/pdf' })
       const url = window.URL.createObjectURL(blob)
       if (newWin) {

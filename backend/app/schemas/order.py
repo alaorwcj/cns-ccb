@@ -22,6 +22,10 @@ class OrderUpdate(BaseModel):
     items: Optional[List[OrderItemCreate]] = None
 
 
+class BatchReceiptsRequest(BaseModel):
+    order_ids: List[int]
+
+
 class OrderItemRead(BaseModel):
     id: int
     product_id: int
