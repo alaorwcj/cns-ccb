@@ -25,14 +25,18 @@ def generate_order_receipt_pdf(db: Session, order: Order) -> bytes:
         c.setFillColor(colors.HexColor('#d3d3d3'))
         c.rect(0, height - 60, width, 60, fill=True, stroke=False)
         
-        # Logo (left side of header)
-        logo_path = '/app/ccb.png'
-        if os.path.exists(logo_path):
-            try:
-                img = ImageReader(logo_path)
-                c.drawImage(img, 30, height - 55, width=50, preserveAspectRatio=True, mask='auto')
-            except Exception:
-                pass
+        # Logo (left side of header) - try multiple paths
+        logo_paths = ['/app/ccb.png', '/app/backend/ccb.png', 'ccb.png']
+        logo_loaded = False
+        for logo_path in logo_paths:
+            if os.path.exists(logo_path):
+                try:
+                    img = ImageReader(logo_path)
+                    c.drawImage(img, 30, height - 55, width=50, height=50, preserveAspectRatio=True, mask='auto')
+                    logo_loaded = True
+                    break
+                except Exception as e:
+                    continue
         
         # Company info (left side of header) - black text on gray
         c.setFillColor(colors.black)
@@ -42,9 +46,9 @@ def generate_order_receipt_pdf(db: Session, order: Order) -> bytes:
         c.drawString(90, height - 37, "Sistema de Controle de Estoque")
         c.drawString(90, height - 48, "Congregação Cristã no Brasil")
         
-        # "Delivery Note" title (right side of header)
+        # "Recibo de Entrega" title (right side of header)
         c.setFont("Helvetica-Bold", 20)
-        c.drawRightString(width - 30, height - 35, "Nota de")
+        c.drawRightString(width - 30, height - 35, "Recibo de")
         c.drawRightString(width - 30, height - 52, "Entrega")
         
         # Reset fill color for body
@@ -225,14 +229,18 @@ def generate_batch_receipts_pdf(db: Session, orders: List[Order]) -> bytes:
             c.setFillColor(colors.HexColor('#d3d3d3'))
             c.rect(0, height - 60, width, 60, fill=True, stroke=False)
             
-            # Logo (left side of header)
-            logo_path = '/app/ccb.png'
-            if os.path.exists(logo_path):
-                try:
-                    img = ImageReader(logo_path)
-                    c.drawImage(img, 30, height - 55, width=50, preserveAspectRatio=True, mask='auto')
-                except Exception:
-                    pass
+            # Logo (left side of header) - try multiple paths
+            logo_paths = ['/app/ccb.png', '/app/backend/ccb.png', 'ccb.png']
+            logo_loaded = False
+            for logo_path in logo_paths:
+                if os.path.exists(logo_path):
+                    try:
+                        img = ImageReader(logo_path)
+                        c.drawImage(img, 30, height - 55, width=50, height=50, preserveAspectRatio=True, mask='auto')
+                        logo_loaded = True
+                        break
+                    except Exception as e:
+                        continue
             
             # Company info (left side of header) - black text on gray
             c.setFillColor(colors.black)
@@ -242,9 +250,9 @@ def generate_batch_receipts_pdf(db: Session, orders: List[Order]) -> bytes:
             c.drawString(90, height - 37, "Sistema de Controle de Estoque")
             c.drawString(90, height - 48, "Congregação Cristã no Brasil")
             
-            # "Delivery Note" title (right side of header)
+            # "Recibo de Entrega" title (right side of header)
             c.setFont("Helvetica-Bold", 20)
-            c.drawRightString(width - 30, height - 35, "Nota de")
+            c.drawRightString(width - 30, height - 35, "Recibo de")
             c.drawRightString(width - 30, height - 52, "Entrega")
             
             # Reset fill color for body
