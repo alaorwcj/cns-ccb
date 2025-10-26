@@ -210,11 +210,13 @@ def batch_receipts(data: BatchReceiptsRequest, db: Session = Depends(db_dep), _a
         raise HTTPException(status_code=400, detail="No order IDs provided")
     
     # Fetch all orders with relationships loaded
+    from app.models.order import OrderItem
+    
     stmt = select(Order).options(
         selectinload(Order.church),
         selectinload(Order.requester),
         selectinload(Order.signed_by),
-        selectinload(Order.items).selectinload(lambda: Order.items.property.mapper.class_.product)
+        selectinload(Order.items).selectinload(OrderItem.product)
     ).where(Order.id.in_(order_ids), Order.status == OrderStatus.ENTREGUE)
     
     orders = list(db.scalars(stmt))
