@@ -2,21 +2,28 @@
 
 **Data**: 2025-10-26  
 **Branch**: deploy/fix-orders-ui  
-**Versão**: 1.1.0  
-**Última atualização**: 2025-10-26 (correção batch-receipts endpoint)
+**Versão**: 1.2.0  
+**Última atualização**: 2025-10-26 (nova regra de edição colaborativa)
 
 ## Resumo das Mudanças
 
-Três novas funcionalidades foram adicionadas ao módulo de Pedidos (/orders):
+Quatro funcionalidades foram adicionadas/modificadas no módulo de Pedidos (/orders):
 
 1. **Recibo em 2 Vias**: Cada recibo PDF agora gera duas páginas (VIA ADMINISTRAÇÃO e VIA COMPRADOR)
 2. **Edição ADM de Pedidos Pendentes**: Administradores podem editar qualquer pedido com status PENDENTE
 3. **Impressão em Lote**: Interface para selecionar múltiplos pedidos entregues e imprimir seus recibos em um único PDF consolidado
+4. **Edição Colaborativa (NOVO v1.2.0)**: Usuários comuns podem editar qualquer pedido pendente de suas igrejas atribuídas (não apenas os próprios)
 
 ### Correções Aplicadas (v1.1.1)
 - **Fix batch-receipts endpoint**: Corrigido para aceitar JSON body com schema Pydantic (`{order_ids: [...]}`), resolvendo erro CORS e parsing
 - Adicionado `BatchReceiptsRequest` schema em `order.py`
 - Frontend atualizado para enviar body no formato correto
+- **Fix selectinload**: Corrigido syntax para carregar products com `OrderItem.product`
+
+### Nova Funcionalidade (v1.2.0)
+- **Edição Colaborativa**: Removida restrição de "apenas o requester pode editar"
+- Agora qualquer membro da igreja pode editar pedidos pendentes dessa igreja
+- Promove trabalho colaborativo entre membros da mesma congregação
 
 ---
 
@@ -82,6 +89,24 @@ Três novas funcionalidades foram adicionadas ao módulo de Pedidos (/orders):
 # 4. Verifique que o PDF consolidado tem 2 páginas para cada pedido selecionado
 ```
 
+### 4. Edição Colaborativa (v1.2.0)
+
+```bash
+# Cenário 1: Usuário João (pertence às igrejas Central e Vila Paula)
+# 1. Faça login como João
+# 2. Vá para /orders
+# 3. Localize um pedido PENDENTE da Igreja Central criado por Maria
+# 4. Clique em "Editar" (agora visível!)
+# 5. Altere itens/quantidades e salve
+# 6. Verifique que a edição foi aplicada com sucesso
+# 7. Tente editar um pedido de uma igreja à qual João NÃO pertence
+# 8. Deve retornar erro 403 "Not allowed"
+
+# Cenário 2: Verificar que apenas PENDENTES podem ser editados
+# 1. Como qualquer usuário, localize um pedido APROVADO da sua igreja
+# 2. Botão "Editar" NÃO deve aparecer (apenas status PENDENTE)
+```
+
 ---
 
 ## Plano de Rollback
@@ -136,15 +161,45 @@ def generate_order_receipt_pdf(db: Session, order: Order) -> bytes:
 
 #### Backend: `backend/app/api/routes/orders.py`
 
-Reverter endpoint `PUT /orders/{order_id}`:
+**Para reverter Edição Colaborativa (v1.2.0 → v1.1.1)**:
 
 ```python
 @router.put("/{order_id}", response_model=OrderRead)
 def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
-    # REMOVER: is_admin = user_role == UserRole.ADM.value
-    # REMOVER: if not is_admin: ...
+    user_id = int(payload.get("user_id"))
+    user_role = payload.get("role")
+    is_admin = user_role == UserRole.ADM.value
     
-    # RESTAURAR lógica original (só requester pode editar):
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if order.status != OrderStatus.PENDENTE:
+        raise HTTPException(status_code=400, detail="Only pending orders can be updated")
+    
+    # RESTAURAR esta lógica (versão v1.1.1 - ADM ou requester):
+    if not is_admin:
+        if order.requester_id != user_id:
+            if not order.church or not any(u.id == user_id for u in order.church.users):
+                raise HTTPException(status_code=403, detail="Not allowed")
+    
+    # OU para versão ORIGINAL (antes de todas features - apenas requester):
+    # if order.requester_id != user_id:
+    #     if not order.church or not any(u.id == user_id for u in order.church.users):
+    #         raise HTTPException(status_code=403, detail="Not allowed")
+    
+    try:
+        return update_order(db, order=order, data=data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+```
+
+**Para reverter endpoint original (antes das features)**:
+
+```python
+@router.put("/{order_id}", response_model=OrderRead)
+def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
+    # LÓGICA ORIGINAL: apenas requester ou membro da igreja podem editar
     user_id = int(payload.get("user_id"))
     order = db.get(Order, order_id)
     if not order:
@@ -153,6 +208,11 @@ def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payl
         if not order.church or not any(u.id == user_id for u in order.church.users):
             raise HTTPException(status_code=403, detail="Not allowed")
     if order.status != OrderStatus.PENDENTE:
+        raise HTTPException(status_code=400, detail="Only pending orders can be updated")
+    try:
+        return update_order(db, order=order, data=data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=400, detail="Only pending orders can be updated")
     try:
         return update_order(db, order=order, data=data)
@@ -170,7 +230,25 @@ Remover endpoint `/batch-receipts`:
 
 #### Frontend: `frontend/app/src/routes/orders/OrdersList.tsx`
 
-Reverter para versão sem seleção em lote:
+**Para reverter Edição Colaborativa (v1.2.0 → v1.1.1)**:
+
+```tsx
+// RESTAURAR condição original do botão Editar (versão v1.1.1 - ADM ou requester):
+{o.status === 'PENDENTE' && (role === 'ADM' || o.requester_id === Number(localStorage.getItem('user_id'))) && (
+  <button className="px-2 py-1 rounded bg-white dark:bg-gray-700 dark:text-white border dark:border-gray-600 text-xs" onClick={() => startEdit(o)}>Editar</button>
+)}
+```
+
+**Para reverter para versão ORIGINAL (antes das features - apenas requester)**:
+
+```tsx
+// VERSÃO ORIGINAL: apenas requester pode editar
+{o.status === 'PENDENTE' && o.requester_id === Number(localStorage.getItem('user_id')) && (
+  <button className="px-2 py-1 rounded bg-white dark:bg-gray-700 dark:text-white border dark:border-gray-600 text-xs" onClick={() => startEdit(o)}>Editar</button>
+)}
+```
+
+**Para reverter seleção em lote completamente**:
 
 ```tsx
 // REMOVER:
