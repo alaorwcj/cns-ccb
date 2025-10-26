@@ -29,6 +29,10 @@ export default function OrdersList() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalOrders, setTotalOrders] = useState(0)
   const pageSize = 10
+  
+  // Batch printing state
+  const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set())
+  const [printingBatch, setPrintingBatch] = useState(false)
 
   const load = async (page: number = 1) => {
     setLoading(true)
@@ -120,18 +124,84 @@ export default function OrdersList() {
     setViewOrder(o)
   }
 
+  // Batch selection handlers
+  const toggleSelectOrder = (id: number) => {
+    const newSelected = new Set(selectedOrders)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedOrders(newSelected)
+  }
+
+  const selectAllDelivered = () => {
+    const deliveredIds = orders.filter(o => o.status === 'ENTREGUE').map(o => o.id)
+    setSelectedOrders(new Set(deliveredIds))
+  }
+
+  const clearSelection = () => {
+    setSelectedOrders(new Set())
+  }
+
+  const printBatch = async () => {
+    if (selectedOrders.size === 0) {
+      alert('Selecione pelo menos um pedido para imprimir')
+      return
+    }
+    
+    const newWin = window.open('', '_blank')
+    setPrintingBatch(true)
+    try {
+      const orderIds = Array.from(selectedOrders)
+      const r = await api.post('/orders/batch-receipts', orderIds, { responseType: 'blob' })
+      const blob = new Blob([r.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      if (newWin) {
+        newWin.location.href = url
+      } else {
+        window.open(url, '_blank')
+      }
+      setTimeout(() => window.URL.revokeObjectURL(url), 10000)
+      clearSelection()
+    } catch (e: any) {
+      if (newWin) newWin.close()
+      alert(e?.response?.data?.detail || 'Falha ao gerar recibos em lote')
+    } finally {
+      setPrintingBatch(false)
+    }
+  }
+
   const filteredOrders = filterStatus === 'all' ? orders : orders.filter((o: any) => o.status === filterStatus)
 
   return (
     <div className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow min-w-0">
-      <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+      <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center flex-wrap gap-2">
         <div className="font-semibold">Pedidos</div>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border rounded px-2 py-1 text-sm">
-          <option value="all">Todos os status</option>
-          <option value="PENDENTE">Pendente</option>
-          <option value="APROVADO">Aprovado</option>
-          <option value="ENTREGUE">Entregue</option>
-        </select>
+        <div className="flex gap-2 items-center flex-wrap">
+          {role === 'ADM' && selectedOrders.size > 0 && (
+            <div className="flex gap-2 items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">{selectedOrders.size} selecionado(s)</span>
+              <button 
+                onClick={printBatch} 
+                disabled={printingBatch}
+                className={`px-3 py-1 rounded text-white text-xs font-medium ${printingBatch ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+              >
+                {printingBatch ? 'Gerando...' : 'Imprimir Selecionados'}
+              </button>
+              <button onClick={clearSelection} className="px-2 py-1 border rounded text-xs hover:bg-gray-50 dark:hover:bg-gray-700">Limpar</button>
+            </div>
+          )}
+          {role === 'ADM' && selectedOrders.size === 0 && (
+            <button onClick={selectAllDelivered} className="px-2 py-1 border rounded text-xs hover:bg-gray-50 dark:hover:bg-gray-700">Selecionar Entregues</button>
+          )}
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border rounded px-2 py-1 text-sm">
+            <option value="all">Todos os status</option>
+            <option value="PENDENTE">Pendente</option>
+            <option value="APROVADO">Aprovado</option>
+            <option value="ENTREGUE">Entregue</option>
+          </select>
+        </div>
       </div>
       {error && <div className="p-4 text-red-600">{error}</div>}
       <div className="p-0">
@@ -156,6 +226,7 @@ export default function OrdersList() {
             <table className="w-full text-sm min-w-full">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr className="text-left">
+              {role === 'ADM' && <th className="p-3 w-12"></th>}
               <th className="p-3">#</th>
               <th className="p-3">Igreja</th>
               <th className="p-3">Cidade</th>
@@ -169,11 +240,23 @@ export default function OrdersList() {
           <tbody className="divide-y">
             {orders.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">Nenhum pedido encontrado</td>
+                <td colSpan={role === 'ADM' ? 8 : 7} className="p-8 text-center text-gray-500 dark:text-gray-400">Nenhum pedido encontrado</td>
               </tr>
             )}
             {filteredOrders.map((o: any) => (
               <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                {role === 'ADM' && (
+                  <td className="p-3">
+                    {o.status === 'ENTREGUE' && (
+                      <input 
+                        type="checkbox" 
+                        checked={selectedOrders.has(o.id)}
+                        onChange={() => toggleSelectOrder(o.id)}
+                        className="w-4 h-4"
+                      />
+                    )}
+                  </td>
+                )}
                 <td className="p-3 font-mono text-xs">{o.id}</td>
                 <td className="p-3 font-medium min-w-0"><div className="truncate">{o.church_name || `Igreja #${o.church_id}`}</div></td>
                 <td className="p-3 text-gray-600 dark:text-gray-300 min-w-0"><div className="truncate">{o.church_city || '-'}</div></td>
@@ -188,7 +271,7 @@ export default function OrdersList() {
                 <td className="p-3">
                   <div className="flex gap-2">
                     <button className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600 text-xs" onClick={() => openViewOrder(o)}>Ver</button>
-                    {o.status === 'PENDENTE' && o.requester_id === Number(localStorage.getItem('user_id')) && (
+                    {o.status === 'PENDENTE' && (role === 'ADM' || o.requester_id === Number(localStorage.getItem('user_id'))) && (
                       <button className="px-2 py-1 rounded bg-white dark:bg-gray-700 dark:text-white border dark:border-gray-600 text-xs" onClick={() => startEdit(o)}>Editar</button>
                     )}
                     {role === 'ADM' && o.status === 'PENDENTE' && (

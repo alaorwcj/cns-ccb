@@ -148,17 +148,25 @@ def deliver(order_id: int, db: Session = Depends(db_dep), _adm=Depends(require_r
 
 @router.put("/{order_id}", response_model=OrderRead)
 def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
-    # only requester can update while PENDENTE
+    # Allow requester or ADM to update while PENDENTE
     user_id = int(payload.get("user_id"))
+    user_role = payload.get("role")
+    is_admin = user_role == UserRole.ADM.value
+    
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    # allow update if requester or if user belongs to the same church
-    if order.requester_id != user_id:
-        if not order.church or not any(u.id == user_id for u in order.church.users):
-            raise HTTPException(status_code=403, detail="Not allowed")
+    
+    # Check order status first
     if order.status != OrderStatus.PENDENTE:
         raise HTTPException(status_code=400, detail="Only pending orders can be updated")
+    
+    # Allow update if: (1) ADM, (2) requester, or (3) user belongs to the same church
+    if not is_admin:
+        if order.requester_id != user_id:
+            if not order.church or not any(u.id == user_id for u in order.church.users):
+                raise HTTPException(status_code=403, detail="Not allowed")
+    
     try:
         return update_order(db, order=order, data=data)
     except ValueError as e:
@@ -184,3 +192,34 @@ def sign_order(order_id: int, db: Session = Depends(db_dep), payload: dict = Dep
     db.commit()
     db.refresh(order)
     return order
+
+
+@router.post("/batch-receipts")
+def batch_receipts(order_ids: List[int], db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
+    """Generate a consolidated PDF with receipts for multiple orders (ADM only).
+    
+    Each order will have 2 copies (VIA ADMINISTRAÇÃO and VIA COMPRADOR).
+    """
+    from sqlalchemy.orm import selectinload
+    from sqlalchemy import select
+    from app.services.receipt import generate_batch_receipts_pdf
+    
+    if not order_ids:
+        raise HTTPException(status_code=400, detail="No order IDs provided")
+    
+    # Fetch all orders with relationships loaded
+    stmt = select(Order).options(
+        selectinload(Order.church),
+        selectinload(Order.requester),
+        selectinload(Order.signed_by),
+        selectinload(Order.items).selectinload(lambda: Order.items.property.mapper.class_.product)
+    ).where(Order.id.in_(order_ids), Order.status == OrderStatus.ENTREGUE)
+    
+    orders = list(db.scalars(stmt))
+    
+    if not orders:
+        raise HTTPException(status_code=404, detail="No delivered orders found with provided IDs")
+    
+    pdf = generate_batch_receipts_pdf(db, orders)
+    headers = {"Content-Disposition": f"attachment; filename=recibos_lote.pdf"}
+    return Response(content=pdf, media_type="application/pdf", headers=headers)
