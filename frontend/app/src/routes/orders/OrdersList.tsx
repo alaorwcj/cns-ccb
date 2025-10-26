@@ -271,7 +271,7 @@ export default function OrdersList() {
                 <td className="p-3">
                   <div className="flex gap-2">
                     <button className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600 text-xs" onClick={() => openViewOrder(o)}>Ver</button>
-                    {o.status === 'PENDENTE' && (role === 'ADM' || o.requester_id === Number(localStorage.getItem('user_id'))) && (
+                    {o.status === 'PENDENTE' && (
                       <button className="px-2 py-1 rounded bg-white dark:bg-gray-700 dark:text-white border dark:border-gray-600 text-xs" onClick={() => startEdit(o)}>Editar</button>
                     )}
                     {role === 'ADM' && o.status === 'PENDENTE' && (

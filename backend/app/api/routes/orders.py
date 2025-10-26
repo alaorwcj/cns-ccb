@@ -161,11 +161,11 @@ def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payl
     if order.status != OrderStatus.PENDENTE:
         raise HTTPException(status_code=400, detail="Only pending orders can be updated")
     
-    # Allow update if: (1) ADM, (2) requester, or (3) user belongs to the same church
+    # Allow update if: (1) ADM, or (2) user belongs to the order's church
+    # Users can now edit any pending order from their assigned churches
     if not is_admin:
-        if order.requester_id != user_id:
-            if not order.church or not any(u.id == user_id for u in order.church.users):
-                raise HTTPException(status_code=403, detail="Not allowed")
+        if not order.church or not any(u.id == user_id for u in order.church.users):
+            raise HTTPException(status_code=403, detail="Not allowed")
     
     try:
         return update_order(db, order=order, data=data)
