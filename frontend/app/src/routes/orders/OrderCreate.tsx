@@ -2,15 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
 
-function decodeUserIdFromJWT(token: string): number | null {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return payload?.user_id || null
-  } catch {
-    return null
-  }
-}
-
 function decodeRoleFromJWT(token: string): string | null {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]))
@@ -30,15 +21,13 @@ export default function OrderCreate() {
   const [churchId, setChurchId] = useState<number | ''>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [existingOrder, setExistingOrder] = useState<any | null>(null)
 
-  const userId = decodeUserIdFromJWT(localStorage.getItem('access_token') || '')
   const role = decodeRoleFromJWT(localStorage.getItem('access_token') || '')
 
   useEffect(() => {
     (async () => {
       try {
-        const [cats, prods, chs, ordersRes] = await Promise.all([
+        const [cats, prods, chs] = await Promise.all([
           api.get('/categories'),
           api.get('/products?limit=100'),
           // fetch either all churches (for admin) or only user's assigned churches
@@ -47,34 +36,19 @@ export default function OrderCreate() {
             if (role === 'ADM') return api.get('/churches')
             return api.get('/churches/mine')
           })(),
-          api.get('/orders?page=1&limit=50'), // Get more orders to find pending ones
         ])
-  setCategories(cats.data)
-  setProducts(prods.data.data || [])
-  // normalize churches payload (some endpoints return array directly)
-  const fetchedChurches = chs.data?.data ?? chs.data
-  setChurches(fetchedChurches || [])
-
-        // Check if user has a pending order
-        const userOrders = ordersRes.data.data || []
-        const pendingOrder = userOrders.find((o: any) => o.status === 'PENDENTE' && o.requester_id === userId)
-
-        if (pendingOrder) {
-          setExistingOrder(pendingOrder)
-          setChurchId(pendingOrder.church_id)
-          const initialItems: Record<number, number> = {}
-          pendingOrder.items.forEach((it: any) => {
-            initialItems[it.product_id] = it.qty
-          })
-          setItems(initialItems)
-        }
+        setCategories(cats.data)
+        setProducts(prods.data.data || [])
+        // normalize churches payload (some endpoints return array directly)
+        const fetchedChurches = chs.data?.data ?? chs.data
+        setChurches(fetchedChurches || [])
       } catch (e: any) {
         setError(e?.response?.data?.detail || 'Erro ao carregar dados')
       } finally {
         setLoading(false)
       }
     })()
-  }, [userId])
+  }, [])
 
   const filtered = useMemo(() => {
     return products.filter((p: any) => filterCat === 'all' || p.category_id === filterCat)
@@ -100,15 +74,9 @@ export default function OrderCreate() {
       }
       if (chosen.length === 0) throw new Error('Selecione ao menos 1 item')
 
-      if (existingOrder) {
-        // Update existing order
-        await api.put(`/orders/${existingOrder.id}`, { church_id: churchId, items: chosen })
-        alert('Pedido atualizado')
-      } else {
-        // Create new order
-        await api.post('/orders', { church_id: churchId, items: chosen })
-        alert('Pedido criado')
-      }
+      // Always create a new order
+      await api.post('/orders', { church_id: churchId, items: chosen })
+      alert('Pedido criado')
       navigate('/orders')
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || 'Falha ao salvar pedido')
@@ -119,12 +87,6 @@ export default function OrderCreate() {
   return (
     <div className="grid gap-4">
       {error && <div className="text-red-600">{error}</div>}
-      {existingOrder && (
-        <div className="bg-blue-50 border border-blue-200 rounded p-3">
-          <div className="text-blue-800 font-medium">Editando Pedido Pendente</div>
-          <div className="text-blue-600 text-sm">Pedido #{existingOrder.id} - Criado em {new Date(existingOrder.created_at).toLocaleDateString('pt-BR')}</div>
-        </div>
-      )}
       <div className="flex gap-2 items-center">
         <select className="border rounded px-2 py-1" value={filterCat}
           onChange={(e) => setFilterCat(e.target.value === 'all' ? 'all' : Number(e.target.value))}>
@@ -139,7 +101,7 @@ export default function OrderCreate() {
           <div className="text-sm text-yellow-600">Você não possui igrejas atribuídas.</div>
         )}
         <button className="bg-blue-600 text-white rounded px-3 py-1" onClick={submit}>
-          {existingOrder ? 'Atualizar Pedido' : 'Confirmar Pedido'}
+          Confirmar Pedido
         </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
