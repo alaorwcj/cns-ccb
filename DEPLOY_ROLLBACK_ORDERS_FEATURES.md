@@ -2,17 +2,18 @@
 
 **Data**: 2025-10-26  
 **Branch**: deploy/fix-orders-ui  
-**Versão**: 1.2.0  
-**Última atualização**: 2025-10-26 (nova regra de edição colaborativa)
+**Versão**: 1.3.0  
+**Última atualização**: 2025-10-26 (removido auto-load de pedido pendente)
 
 ## Resumo das Mudanças
 
-Quatro funcionalidades foram adicionadas/modificadas no módulo de Pedidos (/orders):
+Cinco funcionalidades foram adicionadas/modificadas no módulo de Pedidos (/orders):
 
 1. **Recibo em 2 Vias**: Cada recibo PDF agora gera duas páginas (VIA ADMINISTRAÇÃO e VIA COMPRADOR)
 2. **Edição ADM de Pedidos Pendentes**: Administradores podem editar qualquer pedido com status PENDENTE
 3. **Impressão em Lote**: Interface para selecionar múltiplos pedidos entregues e imprimir seus recibos em um único PDF consolidado
-4. **Edição Colaborativa (NOVO v1.2.0)**: Usuários comuns podem editar qualquer pedido pendente de suas igrejas atribuídas (não apenas os próprios)
+4. **Edição Colaborativa (v1.2.0)**: Usuários comuns podem editar qualquer pedido pendente de suas igrejas atribuídas (não apenas os próprios)
+5. **Criação Livre de Pedidos (NOVO v1.3.0)**: Removida lógica de auto-load de pedido pendente na tela de criação - usuários com múltiplas igrejas podem escolher livremente para qual igreja criar pedido
 
 ### Correções Aplicadas (v1.1.1)
 - **Fix batch-receipts endpoint**: Corrigido para aceitar JSON body com schema Pydantic (`{order_ids: [...]}`), resolvendo erro CORS e parsing
@@ -24,6 +25,15 @@ Quatro funcionalidades foram adicionadas/modificadas no módulo de Pedidos (/ord
 - **Edição Colaborativa**: Removida restrição de "apenas o requester pode editar"
 - Agora qualquer membro da igreja pode editar pedidos pendentes dessa igreja
 - Promove trabalho colaborativo entre membros da mesma congregação
+
+### Refatoração (v1.3.0)
+- **Criação Livre de Pedidos**: Removida lógica de auto-load de pedido pendente em `OrderCreate.tsx`
+- **Problema resolvido**: Usuários com múltiplas igrejas ficavam "presos" na primeira igreja ao criar pedidos
+- **Novo comportamento**: 
+  - Tela "Criar Pedido" sempre cria novo pedido (nunca atualiza)
+  - Usuário escolhe livremente qual igreja quer ao criar
+  - Edição de pendentes feita exclusivamente via botão "Editar" na lista
+- **Código removido**: Estado `existingOrder`, busca de pedidos pendentes, função `decodeUserIdFromJWT`
 
 ---
 
@@ -51,6 +61,15 @@ Quatro funcionalidades foram adicionadas/modificadas no módulo de Pedidos (/ord
    - Modificado: Condição do botão "Editar" para incluir `role === 'ADM'` em pedidos pendentes
    - Adicionado: Funções `toggleSelectOrder()`, `selectAllDelivered()`, `clearSelection()`, `printBatch()`
    - Corrigido: `printBatch()` envia `{order_ids: [...]}` em vez de array direto
+
+4. **`frontend/app/src/routes/orders/OrderCreate.tsx`** (v1.3.0)
+   - Removido: Estado `existingOrder` e `userId`
+   - Removido: Função `decodeUserIdFromJWT`
+   - Removido: Busca automática de pedidos pendentes no `useEffect`
+   - Removido: Lógica condicional de UPDATE vs CREATE no `submit()`
+   - Removido: Banner "Editando Pedido Pendente" na UI
+   - Simplificado: Botão sempre mostra "Confirmar Pedido" (sem condicional)
+   - Resultado: Tela sempre cria novo pedido, nunca atualiza existente
 
 ---
 
@@ -105,6 +124,28 @@ Quatro funcionalidades foram adicionadas/modificadas no módulo de Pedidos (/ord
 # Cenário 2: Verificar que apenas PENDENTES podem ser editados
 # 1. Como qualquer usuário, localize um pedido APROVADO da sua igreja
 # 2. Botão "Editar" NÃO deve aparecer (apenas status PENDENTE)
+```
+
+### 5. Criação Livre de Pedidos (v1.3.0)
+
+```bash
+# Cenário 1: Usuário com múltiplas igrejas cria pedido
+# 1. Faça login como usuário com 2+ igrejas (ex: João - Central e Vila Paula)
+# 2. Vá para /orders e clique em "Novo Pedido"
+# 3. Verifique que campo "Selecione a igreja" está VAZIO (não pré-selecionado)
+# 4. Escolha "Igreja Central" no dropdown
+# 5. Adicione itens e confirme pedido
+# 6. Volte para /orders e clique em "Novo Pedido" novamente
+# 7. Agora escolha "Vila Paula" no dropdown
+# 8. Verifique que consegue criar pedido para igreja diferente
+# 9. Resultado: Dois pedidos criados, cada um para igreja diferente
+
+# Cenário 2: Edição de pedido pendente via lista (não via "Criar Pedido")
+# 1. Como João, vá para /orders
+# 2. Localize um pedido PENDENTE da Igreja Central
+# 3. Clique em "Editar" (botão ao lado do pedido)
+# 4. Altere itens e salve
+# 5. Verifique que NÃO é redirecionado para "Criar Pedido", mas sim usa modal/página de edição
 ```
 
 ---
@@ -237,6 +278,117 @@ Remover endpoint `/batch-receipts`:
 {o.status === 'PENDENTE' && (role === 'ADM' || o.requester_id === Number(localStorage.getItem('user_id'))) && (
   <button className="px-2 py-1 rounded bg-white dark:bg-gray-700 dark:text-white border dark:border-gray-600 text-xs" onClick={() => startEdit(o)}>Editar</button>
 )}
+```
+
+#### Frontend: `frontend/app/src/routes/orders/OrderCreate.tsx`
+
+**Para reverter Criação Livre (v1.3.0 → v1.2.0)**:
+
+```tsx
+// 1. RESTAURAR função decodeUserIdFromJWT:
+function decodeUserIdFromJWT(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload?.user_id || null
+  } catch {
+    return null
+  }
+}
+
+// 2. RESTAURAR estados:
+const [existingOrder, setExistingOrder] = useState<any | null>(null)
+const userId = decodeUserIdFromJWT(localStorage.getItem('access_token') || '')
+
+// 3. RESTAURAR busca de pedidos pendentes no useEffect:
+useEffect(() => {
+  (async () => {
+    try {
+      const [cats, prods, chs, ordersRes] = await Promise.all([
+        api.get('/categories'),
+        api.get('/products?limit=100'),
+        (async () => {
+          const role = decodeRoleFromJWT(localStorage.getItem('access_token') || '')
+          if (role === 'ADM') return api.get('/churches')
+          return api.get('/churches/mine')
+        })(),
+        api.get('/orders?page=1&limit=50'), // Buscar pedidos
+      ])
+      setCategories(cats.data)
+      setProducts(prods.data.data || [])
+      const fetchedChurches = chs.data?.data ?? chs.data
+      setChurches(fetchedChurches || [])
+
+      // Buscar pedido pendente do usuário
+      const userOrders = ordersRes.data.data || []
+      const pendingOrder = userOrders.find((o: any) => o.status === 'PENDENTE' && o.requester_id === userId)
+
+      if (pendingOrder) {
+        setExistingOrder(pendingOrder)
+        setChurchId(pendingOrder.church_id)
+        const initialItems: Record<number, number> = {}
+        pendingOrder.items.forEach((it: any) => {
+          initialItems[it.product_id] = it.qty
+        })
+        setItems(initialItems)
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Erro ao carregar dados')
+    } finally {
+      setLoading(false)
+    }
+  })()
+}, [userId])
+
+// 4. RESTAURAR lógica condicional no submit:
+const submit = async () => {
+  setError(null)
+  try {
+    const chosen = Object.entries(items)
+      .map(([pid, qty]) => ({ product_id: Number(pid), qty: Number(qty) }))
+      .filter((it) => it.qty > 0)
+    if (!churchId) throw new Error('Selecione a igreja')
+    if (role !== 'ADM') {
+      const allowedIds = (churches || []).map((c: any) => c.id)
+      if (!allowedIds.includes(Number(churchId))) {
+        throw new Error('Igreja inválida para o seu usuário')
+      }
+    }
+    if (chosen.length === 0) throw new Error('Selecione ao menos 1 item')
+
+    if (existingOrder) {
+      // Atualizar pedido existente
+      await api.put(`/orders/${existingOrder.id}`, { church_id: churchId, items: chosen })
+      alert('Pedido atualizado')
+    } else {
+      // Criar novo pedido
+      await api.post('/orders', { church_id: churchId, items: chosen })
+      alert('Pedido criado')
+    }
+    navigate('/orders')
+  } catch (e: any) {
+    setError(e?.response?.data?.detail || e?.message || 'Falha ao salvar pedido')
+  }
+}
+
+// 5. RESTAURAR banner na UI:
+return (
+  <div className="grid gap-4">
+    {error && <div className="text-red-600">{error}</div>}
+    {existingOrder && (
+      <div className="bg-blue-50 border border-blue-200 rounded p-3">
+        <div className="text-blue-800 font-medium">Editando Pedido Pendente</div>
+        <div className="text-blue-600 text-sm">Pedido #{existingOrder.id} - Criado em {new Date(existingOrder.created_at).toLocaleDateString('pt-BR')}</div>
+      </div>
+    )}
+    <div className="flex gap-2 items-center">
+      {/* ... selects ... */}
+      <button className="bg-blue-600 text-white rounded px-3 py-1" onClick={submit}>
+        {existingOrder ? 'Atualizar Pedido' : 'Confirmar Pedido'}
+      </button>
+    </div>
+    {/* ... produtos ... */}
+  </div>
+)
 ```
 
 **Para reverter para versão ORIGINAL (antes das features - apenas requester)**:
