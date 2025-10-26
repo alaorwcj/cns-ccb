@@ -2,18 +2,19 @@
 
 **Data**: 2025-10-26  
 **Branch**: deploy/fix-orders-ui  
-**Versão**: 1.3.0  
-**Última atualização**: 2025-10-26 (removido auto-load de pedido pendente)
+**Versão**: 1.4.0  
+**Última atualização**: 2025-10-26 (redesign do PDF do recibo)
 
 ## Resumo das Mudanças
 
-Cinco funcionalidades foram adicionadas/modificadas no módulo de Pedidos (/orders):
+Seis funcionalidades foram adicionadas/modificadas no módulo de Pedidos (/orders):
 
 1. **Recibo em 2 Vias**: Cada recibo PDF agora gera duas páginas (VIA ADMINISTRAÇÃO e VIA COMPRADOR)
 2. **Edição ADM de Pedidos Pendentes**: Administradores podem editar qualquer pedido com status PENDENTE
 3. **Impressão em Lote**: Interface para selecionar múltiplos pedidos entregues e imprimir seus recibos em um único PDF consolidado
 4. **Edição Colaborativa (v1.2.0)**: Usuários comuns podem editar qualquer pedido pendente de suas igrejas atribuídas (não apenas os próprios)
-5. **Criação Livre de Pedidos (NOVO v1.3.0)**: Removida lógica de auto-load de pedido pendente na tela de criação - usuários com múltiplas igrejas podem escolher livremente para qual igreja criar pedido
+5. **Criação Livre de Pedidos (v1.3.0)**: Removida lógica de auto-load de pedido pendente na tela de criação - usuários com múltiplas igrejas podem escolher livremente para qual igreja criar pedido
+6. **Design Moderno do Recibo (NOVO v1.4.0)**: PDF redesenhado com layout profissional inspirado em "Delivery Note" - cabeçalho azul, tabela estruturada, termos e condições
 
 ### Correções Aplicadas (v1.1.1)
 - **Fix batch-receipts endpoint**: Corrigido para aceitar JSON body com schema Pydantic (`{order_ids: [...]}`), resolvendo erro CORS e parsing
@@ -35,15 +36,28 @@ Cinco funcionalidades foram adicionadas/modificadas no módulo de Pedidos (/orde
   - Edição de pendentes feita exclusivamente via botão "Editar" na lista
 - **Código removido**: Estado `existingOrder`, busca de pedidos pendentes, função `decodeUserIdFromJWT`
 
+### Design Moderno (v1.4.0)
+- **Redesign do PDF**: Layout profissional inspirado em modelo "Delivery Note"
+- **Elementos novos**:
+  - Cabeçalho azul (#1E88E5) com logo CCB e título "Nota de Entrega"
+  - Seção "Entregar para" com dados do solicitante e igreja
+  - Tabela estruturada com cores alternadas (#F5F5F5) e cabeçalho azul claro (#B3E5FC)
+  - Colunas: Item, Descrição, Quantidade, Preço Unitário
+  - Seção de assinaturas dupla (responsável + data)
+  - Rodapé com "Termos e Condições" profissional
+- **Aplicado em**: `generate_order_receipt_pdf()` e `generate_batch_receipts_pdf()`
+
 ---
 
 ## Arquivos Modificados
 
 ### Backend
 
-1. **`backend/app/services/receipt.py`**
-   - Modificado: `generate_order_receipt_pdf()` - agora gera 2 páginas (via ADM e via COMPRADOR)
-   - Adicionado: `generate_batch_receipts_pdf()` - gera PDF consolidado para múltiplos pedidos
+1. **`backend/app/services/receipt.py`** (v1.4.0)
+   - Modificado: `generate_order_receipt_pdf()` - layout moderno com cabeçalho azul, tabela estruturada, termos
+   - Modificado: `generate_batch_receipts_pdf()` - mesmo layout moderno aplicado
+   - Adicionado: Import `colors` do reportlab para cores hexadecimais
+   - Mantido: Geração de 2 vias (ADM e COMPRADOR) por pedido
 
 2. **`backend/app/api/routes/orders.py`**
    - Modificado: `PUT /orders/{order_id}` - permite ADM editar pedidos pendentes (além do requester)
@@ -174,12 +188,108 @@ docker-compose up -d
 
 #### Backend: `backend/app/services/receipt.py`
 
-Reverter para versão anterior (gera apenas 1 via):
+**Para reverter Design Moderno (v1.4.0 → v1.3.0) - Voltar ao layout simples**:
 
 ```python
-# Remover a função generate_batch_receipts_pdf() completamente
+# Remover import de colors:
+# from reportlab.lib import colors
 
-# Modificar generate_order_receipt_pdf():
+def generate_order_receipt_pdf(db: Session, order: Order) -> bytes:
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    def draw_receipt_page(via_label: str):
+        y = height - 50
+        # Logo simples
+        logo_path = '/app/ccb.png'
+        if os.path.exists(logo_path):
+            try:
+                img = ImageReader(logo_path)
+                c.drawImage(img, 40, y - 40, width=80, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+        
+        # Título simples
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(140, y, "Comprovante de Recebimento")
+        y -= 20
+        
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(140, y, f"VIA: {via_label}")
+        y -= 20
+
+        # Informações básicas (sem boxes, sem cores)
+        c.setFont("Helvetica", 10)
+        c.drawString(40, y, f"Pedido: #{order.id}")
+        y -= 15
+        church_name = order.church.name if getattr(order, 'church', None) and order.church.name else f"Igreja #{order.church_id}"
+        c.drawString(40, y, f"Igreja: {church_name}")
+        y -= 15
+        requester_name = order.requester.name if getattr(order, 'requester', None) and order.requester.name else f"Usuario #{order.requester_id}"
+        c.drawString(40, y, f"Solicitante: {requester_name}")
+        y -= 15
+        c.drawString(40, y, f"Status: {order.status.value}")
+        y -= 15
+        if order.delivered_at:
+            try:
+                delivered_str = order.delivered_at.strftime('%d/%m/%Y %H:%M')
+            except Exception:
+                delivered_str = str(order.delivered_at)
+            c.drawString(40, y, f"Entregue em: {delivered_str}")
+            y -= 20
+
+        # Lista de itens simples (sem tabela)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(40, y, "Itens")
+        y -= 15
+
+        c.setFont("Helvetica", 10)
+        total = Decimal("0")
+        for it in order.items:
+            prod = getattr(it, 'product', None) or db.get(Product, it.product_id)
+            name = prod.name if prod else f"Produto #{it.product_id}"
+            line = f"- {name}  x{it.qty}  @ R${it.unit_price}  = R${it.subtotal}"
+            c.drawString(50, y, line)
+            y -= 14
+            total += it.subtotal
+            if y < 140:
+                c.showPage()
+                y = height - 50
+
+        y -= 10
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(40, y, f"Total: R${total}")
+
+        # Assinatura simples
+        y -= 50
+        c.setFont("Helvetica", 10)
+        c.drawString(40, y, "Assinatura do responsável:")
+        c.line(40, y - 12, 300, y - 12)
+        if getattr(order, 'signed_by', None) and getattr(order, 'signed_at', None):
+            try:
+                signed_name = order.signed_by.name
+                signed_at = order.signed_at.strftime('%d/%m/%Y %H:%M')
+                c.drawString(40, y - 28, f"Assinado por: {signed_name} em {signed_at}")
+            except Exception:
+                c.drawString(40, y - 28, "Assinado")
+        else:
+            c.drawString(40, y - 28, "Assinado por: _______________________________")
+
+    draw_receipt_page("ADMINISTRAÇÃO")
+    c.showPage()
+    draw_receipt_page("COMPRADOR")
+    c.showPage()
+    
+    c.save()
+    pdf = buffer.getvalue()
+    buffer.close()
+    return pdf
+```
+
+**Para reverter para versão ORIGINAL (antes de todas features - 1 via apenas)**:
+
+```python
 def generate_order_receipt_pdf(db: Session, order: Order) -> bytes:
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
