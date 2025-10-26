@@ -3,6 +3,7 @@
 **Data**: 2025-10-26  
 **Branch**: deploy/fix-orders-ui  
 **Versão**: 1.1.0  
+**Última atualização**: 2025-10-26 (correção batch-receipts endpoint)
 
 ## Resumo das Mudanças
 
@@ -11,6 +12,11 @@ Três novas funcionalidades foram adicionadas ao módulo de Pedidos (/orders):
 1. **Recibo em 2 Vias**: Cada recibo PDF agora gera duas páginas (VIA ADMINISTRAÇÃO e VIA COMPRADOR)
 2. **Edição ADM de Pedidos Pendentes**: Administradores podem editar qualquer pedido com status PENDENTE
 3. **Impressão em Lote**: Interface para selecionar múltiplos pedidos entregues e imprimir seus recibos em um único PDF consolidado
+
+### Correções Aplicadas (v1.1.1)
+- **Fix batch-receipts endpoint**: Corrigido para aceitar JSON body com schema Pydantic (`{order_ids: [...]}`), resolvendo erro CORS e parsing
+- Adicionado `BatchReceiptsRequest` schema em `order.py`
+- Frontend atualizado para enviar body no formato correto
 
 ---
 
@@ -24,7 +30,10 @@ Três novas funcionalidades foram adicionadas ao módulo de Pedidos (/orders):
 
 2. **`backend/app/api/routes/orders.py`**
    - Modificado: `PUT /orders/{order_id}` - permite ADM editar pedidos pendentes (além do requester)
-   - Adicionado: `POST /orders/batch-receipts` - endpoint para gerar recibos em lote
+   - Adicionado: `POST /orders/batch-receipts` - endpoint para gerar recibos em lote (corrigido para usar Pydantic schema)
+
+3. **`backend/app/schemas/order.py`**
+   - Adicionado: `BatchReceiptsRequest` schema para validação do body do endpoint batch-receipts
 
 ### Frontend
 
@@ -34,6 +43,7 @@ Três novas funcionalidades foram adicionadas ao módulo de Pedidos (/orders):
    - Adicionado: Botões "Selecionar Entregues", "Imprimir Selecionados", "Limpar"
    - Modificado: Condição do botão "Editar" para incluir `role === 'ADM'` em pedidos pendentes
    - Adicionado: Funções `toggleSelectOrder()`, `selectAllDelivered()`, `clearSelection()`, `printBatch()`
+   - Corrigido: `printBatch()` envia `{order_ids: [...]}` em vez de array direto
 
 ---
 
