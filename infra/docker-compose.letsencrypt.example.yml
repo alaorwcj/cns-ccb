@@ -1,0 +1,52 @@
+# Exemplo opcional: docker-compose com nginx-proxy + letsencrypt companion
+# Use este arquivo como referência se quiser rodar proxy+certs em containers.
+# NÃO é necessário para o fluxo host-nginx descrito no README.
+
+version: '3.7'
+services:
+  proxy:
+    image: jwilder/nginx-proxy:latest
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./certs:/etc/nginx/certs:rw
+      - ./vhost.d:/etc/nginx/vhost.d:rw
+      - ./html:/usr/share/nginx/html:rw
+
+  letsencrypt:
+    image: nginxproxy/acme-companion:latest
+    container_name: nginx-letsencrypt
+    restart: unless-stopped
+    depends_on:
+      - proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/etc/nginx/certs:rw
+      - ./vhost.d:/etc/nginx/vhost.d:rw
+      - ./html:/usr/share/nginx/html:rw
+
+  web:
+    build:
+      context: ../frontend/app
+    environment:
+      VIRTUAL_HOST: cns.admsiga.org.br
+      VIRTUAL_PORT: 80
+      LETSENCRYPT_HOST: cns.admsiga.org.br
+      LETSENCRYPT_EMAIL: alaor.rodrigues@gru.congregacao.org.br
+    restart: unless-stopped
+
+  api:
+    build: ../backend
+    environment:
+      VIRTUAL_HOST: cns.admsiga.org.br
+      VIRTUAL_PORT: 8000
+      LETSENCRYPT_HOST: cns.admsiga.org.br
+      LETSENCRYPT_EMAIL: alaor.rodrigues@gru.congregacao.org.br
+    restart: unless-stopped
+
+# Observação: esse setup exige adaptar o frontend/backend para expor portas 80/8000 internamente
+# e confiar no proxy. É uma mudança maior — use com cautela e sempre teste em staging.

@@ -1,0 +1,11 @@
+[Unit]
+Description=Renew certificates for nginx-proxy (docker acme-companion)
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/root/app/cns-ccb/infra/scripts/renew_nginx_proxy_certs.sh
+
+[Install]
+WantedBy=multi-user.target

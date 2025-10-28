@@ -1,0 +1,91 @@
+version: '3.7'
+
+services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy:latest
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./proxy/certs:/etc/nginx/certs:rw
+      - ./proxy/vhost.d:/etc/nginx/vhost.d:rw
+      - ./proxy/html:/usr/share/nginx/html:rw
+      - ./proxy/conf.d:/etc/nginx/conf.d:rw
+    networks:
+      - proxy-tier
+
+  letsencrypt:
+    image: nginxproxy/acme-companion:latest
+    container_name: nginx-letsencrypt
+    restart: unless-stopped
+    depends_on:
+      - nginx-proxy
+    environment:
+      NGINX_PROXY_CONTAINER: nginx-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./proxy/certs:/etc/nginx/certs:rw
+      - ./proxy/vhost.d:/etc/nginx/vhost.d:rw
+      - ./proxy/html:/usr/share/nginx/html:rw
+      - ./proxy/acme:/etc/acme.sh
+    networks:
+      - proxy-tier
+
+  web:
+    build:
+      context: ../frontend/app
+    image: cns-frontend:latest
+    environment:
+      VIRTUAL_HOST: cns.admsiga.org.br
+      VIRTUAL_PORT: 80
+      LETSENCRYPT_HOST: cns.admsiga.org.br
+      LETSENCRYPT_EMAIL: alaor.rodrigues@gru.congregacao.org.br
+    expose:
+      - "80"
+    restart: unless-stopped
+    networks:
+      - proxy-tier
+
+  api:
+    build: ../backend
+    image: cns-backend:latest
+    environment:
+      # Roteamento por path: NÃO definir VIRTUAL_HOST para evitar que o proxy balanceie por host.
+      # Mantemos apenas variáveis internas (se necessário).
+      VIRTUAL_PORT: 8000
+      DB_HOST: host.docker.internal
+      DB_PORT: 5433
+      DB_USER: ccb
+      DB_PASSWORD: Apx7G05Le2n6TM4kN06G7VMPP
+      DB_NAME: ccb
+      # Overriding DATABASE_URL to point to the host Postgres (local) on port 5433
+      DATABASE_URL: "postgresql+psycopg2://ccb:Apx7G05Le2n6TM4kN06G7VMPP@host.docker.internal:5433/ccb"
+    env_file: ../backend/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8000"
+    restart: unless-stopped
+    networks:
+      - proxy-tier
+
+  # DB service removed: Postgres is hosted locally on the host machine (port 5433).
+  # If you later want a containerized Postgres, re-add a `db` service here.
+
+networks:
+  proxy-tier:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
+
+# Observações:
+# - Este compose cria um proxy reverso que usa o Docker socket. Ele emite/renova certificados automaticamente
+#   para os hosts indicados nas variáveis LETSENCRYPT_HOST/VIRTUAL_HOST.
+# - Recomendamos usar subdomínio para API (api.cns.admsiga.org.br) porque o nginx-proxy faz proxy por host,
+#   não por caminho. Se quiser rotear por caminho, será necessário adicionar arquivo em vhost.d com regras de location.
+# - Crie a pasta infra/proxy/ (certs, vhost.d, html, conf.d) antes de subir.
