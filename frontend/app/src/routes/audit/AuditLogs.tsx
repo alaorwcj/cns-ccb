@@ -34,13 +34,27 @@ export default function AuditLogs() {
   const [loading, setLoading] = useState(true)
   const [showStats, setShowStats] = useState(false)
 
-  // Filters
+  // Calculate default dates (last 7 days)
+  const getDefaultDates = () => {
+    const today = new Date()
+    const sevenDaysAgo = new Date(today)
+    sevenDaysAgo.setDate(today.getDate() - 7)
+    
+    return {
+      start: sevenDaysAgo.toISOString().split('T')[0],
+      end: today.toISOString().split('T')[0]
+    }
+  }
+
+  const defaultDates = getDefaultDates()
+
+  // Filters (initialized with last 7 days)
   const [userId, setUserId] = useState('')
   const [action, setAction] = useState('')
   const [resource, setResource] = useState('')
   const [success, setSuccess] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [startDate, setStartDate] = useState(defaultDates.start)
+  const [endDate, setEndDate] = useState(defaultDates.end)
   const [page, setPage] = useState(1)
   const [limit] = useState(50)
 
@@ -85,12 +99,13 @@ export default function AuditLogs() {
   }
 
   const clearFilters = () => {
+    const defaults = getDefaultDates()
     setUserId('')
     setAction('')
     setResource('')
     setSuccess('')
-    setStartDate('')
-    setEndDate('')
+    setStartDate(defaults.start)
+    setEndDate(defaults.end)
     setPage(1)
     loadLogs()
   }
@@ -196,8 +211,13 @@ export default function AuditLogs() {
 
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded shadow">
-        <div className="p-4 border-b dark:border-gray-700">
+        <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
           <h2 className="text-lg font-semibold">Filtros</h2>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm font-medium">
+              📅 Últimos 7 dias
+            </span>
+          </div>
         </div>
         <div className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">

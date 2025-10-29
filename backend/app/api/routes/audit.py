@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
@@ -35,6 +35,7 @@ def get_audit_logs(
     """
     Get audit logs with filtering and pagination.
     Only accessible to ADM users.
+    Default: Returns logs from the last 7 days.
     """
 
     # Build query with user join
@@ -52,8 +53,15 @@ def get_audit_logs(
         filters.append(AuditLog.resource_id == resource_id)
     if success is not None:
         filters.append(AuditLog.success == success)
+    
+    # Date filtering with 7-day default
     if start_date:
         filters.append(AuditLog.timestamp >= start_date)
+    else:
+        # Default: last 7 days
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        filters.append(AuditLog.timestamp >= seven_days_ago)
+    
     if end_date:
         filters.append(AuditLog.timestamp <= end_date)
     if search:

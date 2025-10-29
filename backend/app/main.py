@@ -13,8 +13,12 @@ from app.api.routes.orders import router as orders_router
 from app.api.routes.dash import router as dash_router
 from app.api.routes.reports import router as reports_router
 from app.api.routes.audit import router as audit_router
+from app.api.middleware.audit import AuditMiddleware
 
 app = FastAPI(title="CCB CNS API", version="0.1.0")
+
+# Add Audit Middleware
+app.add_middleware(AuditMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
