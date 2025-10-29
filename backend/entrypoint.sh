@@ -5,8 +5,23 @@ set -e
 python - <<'PY'
 import time, os, sys
 import socket
-host = os.getenv('DB_HOST','db')
-port = int(os.getenv('DB_PORT','5432'))
+import re
+
+# Extract DB connection info from DATABASE_URL if available
+db_url = os.getenv('DATABASE_URL', '')
+if db_url:
+    # Parse DATABASE_URL: postgresql+psycopg2://user:pass@host:port/dbname
+    match = re.match(r'postgresql\+psycopg2://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', db_url)
+    if match:
+        host = match.group(3)
+        port = int(match.group(4))
+    else:
+        host = os.getenv('DB_HOST','db')
+        port = int(os.getenv('DB_PORT','5432'))
+else:
+    host = os.getenv('DB_HOST','db')
+    port = int(os.getenv('DB_PORT','5432'))
+
 s = socket.socket()
 for i in range(60):
     try:
@@ -26,15 +41,37 @@ python - <<'PY'
 import os
 import psycopg2
 from psycopg2 import sql
+import re
 
-# Database connection
-conn_params = {
-    'host': os.getenv('DB_HOST', 'db'),
-    'port': os.getenv('DB_PORT', '5432'),
-    'user': os.getenv('DB_USER', 'ccb'),
-    'password': os.getenv('DB_PASSWORD', 'ccb'),
-    'database': os.getenv('DB_NAME', 'ccb')
-}
+# Extract DB connection info from DATABASE_URL if available
+db_url = os.getenv('DATABASE_URL', '')
+if db_url:
+    # Parse DATABASE_URL: postgresql+psycopg2://user:pass@host:port/dbname
+    match = re.match(r'postgresql\+psycopg2://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', db_url)
+    if match:
+        conn_params = {
+            'user': match.group(1),
+            'password': match.group(2),
+            'host': match.group(3),
+            'port': match.group(4),
+            'database': match.group(5)
+        }
+    else:
+        conn_params = {
+            'host': os.getenv('DB_HOST', 'db'),
+            'port': os.getenv('DB_PORT', '5432'),
+            'user': os.getenv('DB_USER', 'ccb'),
+            'password': os.getenv('DB_PASSWORD', 'ccb'),
+            'database': os.getenv('DB_NAME', 'ccb')
+        }
+else:
+    conn_params = {
+        'host': os.getenv('DB_HOST', 'db'),
+        'port': os.getenv('DB_PORT', '5432'),
+        'user': os.getenv('DB_USER', 'ccb'),
+        'password': os.getenv('DB_PASSWORD', 'ccb'),
+        'database': os.getenv('DB_NAME', 'ccb')
+    }
 
 try:
     conn = psycopg2.connect(**conn_params)

@@ -1,36 +1,80 @@
 services:
+  # NGINX Reverse Proxy - Gerencia SSL/HTTPS e roteia requisições
+  nginx-proxy:
+    image: jwilder/nginx-proxy:latest
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./proxy/certs:/etc/nginx/certs:rw
+      - ./proxy/vhost.d:/etc/nginx/vhost.d:rw
+      - ./proxy/html:/usr/share/nginx/html:rw
+      - ./proxy/conf.d:/etc/nginx/conf.d:rw
+    networks:
+      - proxy-tier
+
+  # Let's Encrypt - Gerencia certificados SSL automaticamente
+  letsencrypt:
+    image: nginxproxy/acme-companion:latest
+    container_name: nginx-letsencrypt
+    restart: unless-stopped
+    depends_on:
+      - nginx-proxy
+    environment:
+      NGINX_PROXY_CONTAINER: nginx-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./proxy/certs:/etc/nginx/certs:rw
+      - ./proxy/vhost.d:/etc/nginx/vhost.d:rw
+      - ./proxy/html:/usr/share/nginx/html:rw
+      - ./proxy/acme:/etc/acme.sh
+    networks:
+      - proxy-tier
+
+  # Frontend Web - Interface do usuário (React)
+  web:
+    build:
+      context: ../frontend/app
+    image: cns-frontend:latest
+    container_name: cns-web
+    environment:
+      VIRTUAL_HOST: cns.admsiga.org.br
+      VIRTUAL_PORT: 80
+      LETSENCRYPT_HOST: cns.admsiga.org.br
+      LETSENCRYPT_EMAIL: alaor.rodrigues@gru.congregacao.org.br
+    expose:
+      - "80"
+    restart: unless-stopped
+    networks:
+      - proxy-tier
+
+  # Backend API - Servidor FastAPI
   api:
     build: ../backend
+    image: cns-backend:latest
+    container_name: cns-api
     env_file: ../backend/.env
     environment:
-      # Use host Postgres (restored on the host) via host.docker.internal
+      VIRTUAL_PORT: 8000
       DATABASE_URL: "postgresql+psycopg2://${DB_USER:-ccb}:${DB_PASSWORD}@host.docker.internal:5433/${DB_NAME:-ccb}"
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    ports:
-      - "8000:8000"
-    volumes:
-      - ../backend:/app
+    expose:
+      - "8000"
     restart: unless-stopped
+    networks:
+      - proxy-tier
 
-  web:
-    build:
-      context: ../frontend/app
-      args:
-        # Browser clients need a public/host URL (api:8000 resolves only inside docker network).
-        # Set to the server's public IP so the built JS calls the reachable API endpoint.
-        VITE_API_BASE_URL: http://162.220.11.4:8000
-    ports:
-      - "8080:80"
-    environment:
-      VITE_API_BASE_URL: http://162.220.11.4:8000
-    # Serve static build via nginx. Do NOT mount source to avoid overriding built files.
-    restart: unless-stopped
-
+  # Container de testes (opcional - não inicia automaticamente)
   api-test:
     build: ../backend
+    image: cns-backend:latest
+    container_name: cns-api-test
     env_file: ../backend/.env
     environment:
       DATABASE_URL: "postgresql+psycopg2://${DB_USER:-ccb}:${DB_PASSWORD}@host.docker.internal:5433/${DB_NAME:-ccb}"
@@ -42,3 +86,11 @@ services:
     command: sh -lc "pytest -q"
     volumes:
       - ../backend:/app
+    profiles:
+      - test
+    networks:
+      - proxy-tier
+
+networks:
+  proxy-tier:
+    driver: bridge

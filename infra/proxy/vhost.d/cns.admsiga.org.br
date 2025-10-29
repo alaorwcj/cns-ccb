@@ -1,12 +1,11 @@
 # Custom vhost rules for cns.admsiga.org.br to route /api/ to the 'api' container
 location ^~ /api/ {
-    # Use runtime DNS resolution so nginx doesn't need reload when container IP changes
-    # resolver 127.0.0.11; is set globally in the generated config from nginx-proxy
-    set $backend 'infra-api-1:8000';
+    resolver 127.0.0.11 valid=30s;
+    set $backend 'cns-api:8000';
     # Strip the `/api` prefix before proxying so backend sees the expected paths
     # e.g. /api/auth/login -> /auth/login
-    rewrite ^/api(.*)$ $1 break;
-    proxy_pass http://$backend$1;
+    rewrite ^/api/(.*)$ /$1 break;
+    proxy_pass http://$backend;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
