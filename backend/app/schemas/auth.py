@@ -18,3 +18,8 @@ class ResetInitRequest(BaseModel):
 class ResetConfirmRequest(BaseModel):
     token: str
     new_password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { api } from '../../services/api'
 import { useAuth } from '../../store/auth'
 
@@ -57,8 +57,9 @@ export default function Login() {
             <button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 transition text-white rounded px-4 py-2">Acessar conta</button>
           </form>
           <div className="mt-6 pt-4 border-t text-center">
-            <div className="text-xs text-gray-600">Esqueceu sua senha?</div>
-            <button className="mt-2 border rounded px-4 py-2 text-sm">Resetar senha</button>
+            <Link to="/forgot-password" className="text-blue-600 hover:text-blue-700 text-sm transition-colors">
+              Esqueceu sua senha?
+            </Link>
           </div>
         </div>
       </div>

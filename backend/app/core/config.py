@@ -16,6 +16,15 @@ class Settings(BaseSettings):
     # Admin bootstrap
     admin_email: str | None = None
     admin_password: str | None = None
+    
+    # Email/SMTP settings
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_use_tls: bool = True
+    email_from: str | None = None
+    email_from_name: str = "CNS CCB Santa Isabel"
 
     @property
     def cors_origins(self) -> List[str]:

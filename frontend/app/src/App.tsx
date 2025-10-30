@@ -15,6 +15,8 @@ import AuditLogs from './routes/audit/AuditLogs'
 import Layout from './components/AppLayout'
 import ResetConfirm from './routes/auth/ResetConfirm'
 import ResetInit from './routes/auth/ResetInit'
+import ForgotPassword from './routes/auth/ForgotPassword'
+import ChangePassword from './routes/profile/ChangePassword'
 
 function Protected({ children, roles }: { children: JSX.Element; roles?: ("ADM"|"USUARIO")[] }) {
   const { access, role } = useAuth()
@@ -61,6 +63,7 @@ export default function App() {
     <div>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-confirm" element={<ResetConfirm />} />
         <Route path="/" element={<Protected><Layout><Dashboard /></Layout></Protected>} />
         <Route path="/orders" element={<Protected><Layout><OrdersList /></Layout></Protected>} />
@@ -74,6 +77,7 @@ export default function App() {
         <Route path="/churches" element={<Protected roles={["ADM"]}><Layout><ChurchesList /></Layout></Protected>} />
         <Route path="/audit" element={<Protected roles={["ADM"]}><Layout><AuditLogs /></Layout></Protected>} />
         <Route path="/admin/reset" element={<Protected roles={["ADM"]}><Layout><ResetInit /></Layout></Protected>} />
+        <Route path="/profile/change-password" element={<Protected><Layout><ChangePassword /></Layout></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

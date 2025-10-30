@@ -82,6 +82,13 @@ function Icon({ name }: { name: string }) {
           <path d="M12 15v6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )
+    case 'profile':
+      return (
+        <svg className="h-5 w-5 mr-2 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="7" r="4" strokeWidth="2" />
+        </svg>
+      )
     default:
       return <span className="h-5 w-5 mr-2 inline-block" />
   }
@@ -110,6 +117,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       { to: "/orders/new", icon: "new", label: "Fazer pedido", roles: ["ADM", "USUARIO"] },
       { to: "/stock", icon: "stock", label: "Movimentações", roles: ["ADM", "USUARIO"] },
       { to: "/reports", icon: "reports", label: "Relatórios", roles: ["ADM", "USUARIO"] },
+      { to: "/profile/change-password", icon: "profile", label: "Trocar Senha", roles: ["ADM", "USUARIO"] },
     ];
 
     const adminItems = [
