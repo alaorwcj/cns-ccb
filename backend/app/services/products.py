@@ -72,6 +72,13 @@ def update_product(db: Session, product: Product, **kwargs) -> Product:
 
 
 def delete_product(db: Session, product: Product) -> None:
+    # Check if product is used in any orders
+    if product.order_items:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete product '{product.name}' because it is used in {len(product.order_items)} order(s)"
+        )
     db.delete(product)
     db.commit()
 
