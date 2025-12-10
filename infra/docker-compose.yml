@@ -66,6 +66,8 @@ services:
       - "host.docker.internal:host-gateway"
     expose:
       - "8000"
+    volumes:
+      - ../backend/uploads:/app/uploads
     restart: unless-stopped
     networks:
       - proxy-tier
