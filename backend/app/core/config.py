@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None
     twilio_whatsapp_from: str | None = None
+    
+    # AWS S3 settings
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_s3_bucket: str | None = None
+    aws_s3_region: str = "us-east-1"
 
     @property
     def cors_origins(self) -> List[str]:

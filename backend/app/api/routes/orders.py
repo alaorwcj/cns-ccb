@@ -315,22 +315,25 @@ def upload_signed_receipt(
     
     # Generate unique filename
     file_extension = Path(file.filename).suffix
-    unique_filename = f"{order_id}_{uuid.uuid4().hex}{file_extension}"
+    unique_filename = f"receipts/{order_id}_{uuid.uuid4().hex}{file_extension}"
     
-    # Create upload directory if it doesn't exist
-    upload_dir = Path("/app/uploads/receipts")
-    upload_dir.mkdir(parents=True, exist_ok=True)
+    # Read file content
+    file_content = file.file.read()
     
-    # Save file
-    file_path = upload_dir / unique_filename
-    with open(file_path, "wb") as buffer:
-        buffer.write(file.file.read())
+    # Upload to S3
+    try:
+        from app.services.storage import upload_file_to_s3
+        upload_file_to_s3(file_content, unique_filename, file.content_type)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
     
-    # Delete old file if exists
+    # Delete old file from S3 if exists
     if order.signed_receipt_path:
-        old_file = Path(f"/app/uploads/receipts/{order.signed_receipt_path}")
-        if old_file.exists():
-            old_file.unlink()
+        try:
+            from app.services.storage import delete_file_from_s3
+            delete_file_from_s3(order.signed_receipt_path)
+        except Exception:
+            pass  # Ignore errors deleting old file
     
     # Update order with new file path
     order.signed_receipt_path = unique_filename
@@ -340,22 +343,26 @@ def upload_signed_receipt(
     return {"message": "Receipt uploaded successfully", "filename": unique_filename}
 
 
-@router.get("/receipts/{filename}")
+@router.get("/receipts/{filename:path}")
 def get_signed_receipt(filename: str, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
-    """Download a signed receipt file."""
-    # Validate filename to prevent directory traversal
-    if ".." in filename or "/" in filename:
+    """Download a signed receipt file from S3."""
+    # Validate filename to prevent issues
+    if ".." in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
     
-    file_path = Path(f"/app/uploads/receipts/{filename}")
-    
-    if not file_path.exists():
+    # Download from S3
+    try:
+        from app.services.storage import download_file_from_s3
+        file_content = download_file_from_s3(filename)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="File not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to download file: {str(e)}")
     
     # Determine media type
-    media_type = "application/pdf" if file_path.suffix == ".pdf" else "image/jpeg"
+    media_type = "application/pdf" if filename.endswith(".pdf") else "image/jpeg"
     
-    return FileResponse(file_path, media_type=media_type)
+    return Response(content=file_content, media_type=media_type)
 
 
 @router.delete("/{order_id}/receipt-upload")
@@ -372,10 +379,12 @@ def delete_signed_receipt(
     if not order.signed_receipt_path:
         raise HTTPException(status_code=404, detail="No receipt file attached to this order")
     
-    # Delete file
-    file_path = Path(f"/app/uploads/receipts/{order.signed_receipt_path}")
-    if file_path.exists():
-        file_path.unlink()
+    # Delete file from S3
+    try:
+        from app.services.storage import delete_file_from_s3
+        delete_file_from_s3(order.signed_receipt_path)
+    except Exception:
+        pass  # Ignore errors deleting file
     
     # Update order
     order.signed_receipt_path = None
