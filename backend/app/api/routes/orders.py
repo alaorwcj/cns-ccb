@@ -383,3 +383,53 @@ def delete_signed_receipt(
     
     return {"message": "Receipt deleted successfully"}
 
+
+@router.post("/{order_id}/whatsapp")
+def send_order_whatsapp(
+    order_id: int,
+    db: Session = Depends(db_dep),
+    _adm=Depends(require_role("ADM"))
+):
+    """Send order notification via WhatsApp (ADM only)."""
+    from app.services.whatsapp import send_whatsapp_message, format_order_message
+    
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Get church phone
+    if not order.church or not order.church.whatsapp_phone:
+        raise HTTPException(status_code=400, detail="Igreja não possui WhatsApp cadastrado")
+    
+    # Build order dict for formatting
+    order_dict = {
+        "id": order.id,
+        "church_name": order.church.name if order.church else None,
+        "church_city": order.church.city if order.church else None,
+        "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+        "created_at": order.created_at,
+        "items": [
+            {
+                "product_name": item.product.name if item.product else f"Produto #{item.product_id}",
+                "quantity": item.qty,
+                "subtotal": float(item.subtotal)
+            }
+            for item in order.items
+        ]
+    }
+    
+    message = format_order_message(order_dict)
+    result = send_whatsapp_message(order.church.whatsapp_phone, message)
+    
+    if result.get("success"):
+        return {
+            "success": True,
+            "message": "WhatsApp enviado com sucesso",
+            "message_sid": result.get("message_sid")
+        }
+    else:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao enviar WhatsApp: {result.get('error', 'Erro desconhecido')}"
+        )
+

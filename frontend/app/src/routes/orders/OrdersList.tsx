@@ -44,6 +44,21 @@ export default function OrdersList() {
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set())
   const [printingBatch, setPrintingBatch] = useState(false)
   
+  // WhatsApp sending state
+  const [sendingWhatsApp, setSendingWhatsApp] = useState<number | null>(null)
+  
+  const sendWhatsApp = async (orderId: number) => {
+    setSendingWhatsApp(orderId)
+    try {
+      await api.post(`/orders/${orderId}/whatsapp`)
+      alert('WhatsApp enviado com sucesso!')
+    } catch (e: any) {
+      alert(e?.response?.data?.detail || 'Erro ao enviar WhatsApp')
+    } finally {
+      setSendingWhatsApp(null)
+    }
+  }
+  
   // Carregar igrejas para o filtro
   const loadChurches = async () => {
     try {
@@ -446,23 +461,15 @@ export default function OrdersList() {
                         {downloadingId === o.id ? 'Baixando...' : 'Recibo'}
                       </button>
                     )}
-                    {o.whatsapp_phone && (
-                      <a
-                        href={`https://wa.me/${o.whatsapp_phone}?text=${encodeURIComponent(
-                          `📋 *PEDIDO #${o.id}*\n` +
-                          `Igreja: ${o.church_name || 'N/A'} - ${o.church_city || 'N/A'}\n` +
-                          `Data: ${new Date(o.created_at).toLocaleDateString('pt-BR')}\n` +
-                          `*ITENS:*\n${(o.items || []).map((it: any) => `• ${it.product_name || 'Produto'} × ${it.quantity}`).join('\n')}\n` +
-                          `Total: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((o.items || []).reduce((acc: number, it: any) => acc + Number(it.subtotal || 0), 0))}\n` +
-                          `Status: ${o.status}`
-                        )}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-xs font-medium"
+                    {role === 'ADM' && o.whatsapp_phone && (
+                      <button
+                        onClick={() => sendWhatsApp(o.id)}
+                        disabled={sendingWhatsApp === o.id}
+                        className={`px-2 py-1 rounded text-white text-xs font-medium ${sendingWhatsApp === o.id ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'}`}
                         title="Enviar via WhatsApp"
                       >
-                        📱 Zap
-                      </a>
+                        {sendingWhatsApp === o.id ? 'Enviando...' : '📱 Zap'}
+                      </button>
                     )}
                   </div>
                 </td>

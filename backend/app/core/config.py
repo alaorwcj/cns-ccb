@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = True
     email_from: str | None = None
     email_from_name: str = "CNS CCB Santa Isabel"
+    
+    # Twilio WhatsApp settings
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    twilio_whatsapp_from: str | None = None
 
     @property
     def cors_origins(self) -> List[str]:

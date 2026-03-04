@@ -15,17 +15,18 @@ def list_cities(db: Session) -> List[str]:
     return list(cities)
 
 
-def create_church(db: Session, name: str, city: str) -> Church:
-    ch = Church(name=name, city=city)
+def create_church(db: Session, name: str, city: str, whatsapp_phone: str | None = None) -> Church:
+    ch = Church(name=name, city=city, whatsapp_phone=whatsapp_phone)
     db.add(ch)
     db.commit()
     db.refresh(ch)
     return ch
 
 
-def update_church(db: Session, church: Church, name: str, city: str) -> Church:
+def update_church(db: Session, church: Church, name: str, city: str, whatsapp_phone: str | None = None) -> Church:
     church.name = name
     church.city = city
+    church.whatsapp_phone = whatsapp_phone
     db.commit()
     db.refresh(church)
     return church

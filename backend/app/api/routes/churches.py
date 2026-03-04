@@ -35,7 +35,7 @@ def get_my_churches(db: Session = Depends(db_dep), payload: dict = Depends(get_c
 
 @router.post("", response_model=ChurchRead, status_code=status.HTTP_201_CREATED)
 def post_church(data: ChurchCreate, db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
-    return create_church(db, data.name, data.city)
+    return create_church(db, data.name, data.city, data.whatsapp_phone)
 
 
 @router.put("/{church_id}", response_model=ChurchRead)
@@ -48,7 +48,7 @@ def put_church(
     church = db.get(Church, church_id)
     if not church:
         raise HTTPException(status_code=404, detail="Church not found")
-    return update_church(db, church, data.name, data.city)
+    return update_church(db, church, data.name, data.city, data.whatsapp_phone)
 
 
 @router.delete("/{church_id}", status_code=status.HTTP_204_NO_CONTENT)
