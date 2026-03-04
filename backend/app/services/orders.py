@@ -201,6 +201,32 @@ def approve_order(db: Session, *, order: Order) -> Order:
     order.approved_at = datetime.utcnow()
     db.commit()
     db.refresh(order)
+    
+    # Send WhatsApp notification automatically
+    if order.church and order.church.whatsapp_phone:
+        try:
+            from app.services.whatsapp import send_whatsapp_message, format_order_message
+            order_dict = {
+                "id": order.id,
+                "church_name": order.church.name if order.church else None,
+                "church_city": order.church.city if order.church else None,
+                "status": "APROVADO",
+                "created_at": order.created_at,
+                "items": [
+                    {
+                        "product_name": item.product.name if item.product else f"Produto #{item.product_id}",
+                        "quantity": item.qty,
+                        "subtotal": float(item.subtotal)
+                    }
+                    for item in order.items
+                ]
+            }
+            message = format_order_message(order_dict)
+            send_whatsapp_message(order.church.whatsapp_phone, message)
+        except Exception as e:
+            # Log error but don't fail the approval
+            print(f"WhatsApp notification failed for order {order.id}: {e}")
+    
     return order
 
 
