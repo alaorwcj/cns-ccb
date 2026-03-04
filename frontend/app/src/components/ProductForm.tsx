@@ -16,6 +16,7 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
     price: '',
     stock_qty: '0',
     low_stock_threshold: '10',
+    max_qty_per_order: '',
     is_active: true,
   })
   const [loading, setLoading] = useState(false)
@@ -41,6 +42,7 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
         price: product.price?.toString() || '',
         stock_qty: product.stock_qty?.toString() || '0',
         low_stock_threshold: product.low_stock_threshold?.toString() || '10',
+        max_qty_per_order: product.max_qty_per_order?.toString() || '',
         is_active: product.is_active ?? true,
       })
     }
@@ -57,6 +59,7 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
         price: Number(formData.price),
         stock_qty: Number(formData.stock_qty),
         low_stock_threshold: Number(formData.low_stock_threshold),
+        max_qty_per_order: formData.max_qty_per_order ? Number(formData.max_qty_per_order) : null,
       }
       
       if (product) {
@@ -159,6 +162,19 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
                   onChange={(e) => setFormData({ ...formData, low_stock_threshold: e.target.value })}
                 />
               </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Limite Máx. por Pedido</label>
+              <input
+                type="number"
+                min="0"
+                placeholder="Sem limite"
+                className="w-full border rounded px-3 py-2"
+                value={formData.max_qty_per_order}
+                onChange={(e) => setFormData({ ...formData, max_qty_per_order: e.target.value })}
+              />
+              <p className="text-xs text-gray-500 mt-1">Deixe vazio ou 0 para não limitar</p>
             </div>
 
             <div className="flex items-center gap-2">

@@ -28,6 +28,7 @@ def get_orders(
     limit: int = Query(default=10, ge=1, le=50),
     date_from: str = Query(default=None, description="Filtro data inicial (YYYY-MM-DD)"),
     date_until: str = Query(default=None, description="Filtro data final (YYYY-MM-DD)"),
+    church_id: int = Query(default=None, description="Filtro por igreja"),
 ):
     is_admin = payload.get("role") == UserRole.ADM.value
     user_id = int(payload.get("user_id"))
@@ -50,12 +51,14 @@ def get_orders(
 
     user = db.get(User, user_id)
     orders = list_orders_for_user(db, user=user, is_admin=is_admin, page=page, limit=limit, 
-                                   date_from=date_from_dt, date_until=date_until_dt)
-    total = count_orders_for_user(db, user=user, is_admin=is_admin)
+                                   date_from=date_from_dt, date_until=date_until_dt, church_id=church_id)
+    total = count_orders_for_user(db, user=user, is_admin=is_admin, 
+                                   date_from=date_from_dt, date_until=date_until_dt, church_id=church_id)
     # Add church_name and church_city to each order
     for order in orders:
         order.church_name = order.church.name if order.church else None
         order.church_city = order.church.city if order.church else None
+        order.whatsapp_phone = order.church.whatsapp_phone if order.church else None
         # also add product_name to each item (if product relation loaded)
         for it in getattr(order, 'items', []) or []:
             try:
@@ -121,6 +124,7 @@ def get_order(order_id: int, db: Session = Depends(db_dep), payload: dict = Depe
     # Add church_name and church_city
     order.church_name = order.church.name if order.church else None
     order.church_city = order.church.city if order.church else None
+    order.whatsapp_phone = order.church.whatsapp_phone if order.church else None
     # add product_name to each item for convenience
     for it in getattr(order, 'items', []) or []:
         try:

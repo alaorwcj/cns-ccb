@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Optional
+from io import BytesIO
 from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import db_dep, require_role
@@ -13,7 +15,8 @@ from app.services.reports import (
     get_dashboard_report,
     get_user_orders_report,
     get_user_product_catalog,
-    get_user_movements_report
+    get_user_movements_report,
+    generate_orders_excel
 )
 from app.schemas.reports import (
     StockMovementReport,
@@ -52,6 +55,36 @@ def get_stock_movements_report(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao gerar relatório: {str(e)}")
+
+
+@router.get("/orders/excel")
+def get_orders_excel_report(
+    start_date: Optional[datetime] = Query(None, description="Data inicial (YYYY-MM-DDTHH:MM:SS)"),
+    end_date: Optional[datetime] = Query(None, description="Data final (YYYY-MM-DDTHH:MM:SS)"),
+    church_id: Optional[int] = Query(None, description="ID da igreja"),
+    status: Optional[str] = Query(None, description="Status do pedido"),
+    db: Session = Depends(db_dep),
+    _adm=Depends(require_role("ADM")),
+):
+    """Exportar relatório de pedidos em Excel - Apenas ADM"""
+    try:
+        excel_bytes = generate_orders_excel(
+            db=db,
+            start_date=start_date,
+            end_date=end_date,
+            church_id=church_id,
+            status=status
+        )
+        
+        filename = f"relatorio_pedidos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        
+        return StreamingResponse(
+            BytesIO(excel_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar Excel: {str(e)}")
 
 
 @router.get("/orders", response_model=OrderReport)

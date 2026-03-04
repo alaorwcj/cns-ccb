@@ -19,6 +19,7 @@ class Product(Base):
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
     stock_qty: Mapped[int] = mapped_column(Integer, default=0)
     low_stock_threshold: Mapped[int] = mapped_column(Integer, default=0)
+    max_qty_per_order: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 

@@ -44,6 +44,7 @@ class OrderRead(BaseModel):
     church_id: int
     church_name: Optional[str] = None
     church_city: Optional[str] = None
+    whatsapp_phone: Optional[str] = None
     status: OrderStatus
     created_at: datetime
     approved_at: Optional[datetime]

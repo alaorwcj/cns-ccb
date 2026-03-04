@@ -11,6 +11,7 @@ class ProductBase(BaseModel):
     price: Decimal
     stock_qty: int = 0
     low_stock_threshold: int = 0
+    max_qty_per_order: Optional[int] = None
     is_active: bool = True
 
 
@@ -25,6 +26,7 @@ class ProductUpdate(BaseModel):
     price: Optional[Decimal] = None
     stock_qty: Optional[int] = None
     low_stock_threshold: Optional[int] = None
+    max_qty_per_order: Optional[int] = None
     is_active: Optional[bool] = None
 
 

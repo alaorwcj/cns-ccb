@@ -90,6 +90,35 @@ export default function OrdersReport(): JSX.Element {
     link.download = `pedidos_${new Date().toISOString().split('T')[0]}.csv`
     link.click()
   }
+  
+  const [exportingExcel, setExportingExcel] = useState(false)
+  
+  const exportToExcel = async () => {
+    try {
+      setExportingExcel(true)
+      const params = new URLSearchParams()
+      if (startDate) params.append('start_date', startDate)
+      if (endDate) params.append('end_date', endDate)
+      if (status) params.append('status', status)
+      
+      const response = await api.get(`/reports/orders/excel?${params}`, {
+        responseType: 'blob'
+      })
+      
+      const blob = new Blob([response.data], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `relatorio_pedidos_${new Date().toISOString().split('T')[0]}.xlsx`
+      link.click()
+      URL.revokeObjectURL(link.href)
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Erro ao exportar Excel')
+    } finally {
+      setExportingExcel(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -121,12 +150,21 @@ export default function OrdersReport(): JSX.Element {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Relatório de Pedidos</h2>
-        <button
-          onClick={exportToCSV}
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center"
-        >
-          📊 Exportar CSV
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={exportToExcel}
+            disabled={exportingExcel}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center disabled:opacity-50"
+          >
+            {exportingExcel ? '⏳ Gerando...' : '📥 Exportar Excel'}
+          </button>
+          <button
+            onClick={exportToCSV}
+            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 flex items-center"
+          >
+            📊 Exportar CSV
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}

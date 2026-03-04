@@ -14,7 +14,7 @@ from app.models.stock_movement import MovementType, StockMovement
 
 
 def list_orders_for_user(db: Session, *, user: User, is_admin: bool, page: int = 1, limit: int = 10, 
-                         date_from: datetime = None, date_until: datetime = None) -> List[Order]:
+                         date_from: datetime = None, date_until: datetime = None, church_id: int = None) -> List[Order]:
     # ensure we also load related product objects for each order item so callers can include product.name
     from app.models.order import OrderItem
     stmt = select(Order).options(
@@ -28,6 +28,10 @@ def list_orders_for_user(db: Session, *, user: User, is_admin: bool, page: int =
             return []
         stmt = stmt.where(Order.church_id.in_(church_ids))
     
+    # Filtro por igreja
+    if church_id:
+        stmt = stmt.where(Order.church_id == church_id)
+    
     # Filtro por data
     if date_from:
         stmt = stmt.where(Order.created_at >= date_from)
@@ -38,10 +42,25 @@ def list_orders_for_user(db: Session, *, user: User, is_admin: bool, page: int =
     return list(db.scalars(stmt))
 
 
-def count_orders_for_user(db: Session, *, user: User, is_admin: bool) -> int:
+def count_orders_for_user(db: Session, *, user: User, is_admin: bool, 
+                          date_from: datetime = None, date_until: datetime = None, church_id: int = None) -> int:
     stmt = select(func.count()).select_from(Order)
     if not is_admin:
-        stmt = stmt.where(Order.requester_id == user.id)
+        church_ids = [c.id for c in (user.churches or [])]
+        if not church_ids:
+            return 0
+        stmt = stmt.where(Order.church_id.in_(church_ids))
+    
+    # Filtro por igreja
+    if church_id:
+        stmt = stmt.where(Order.church_id == church_id)
+    
+    # Filtro por data
+    if date_from:
+        stmt = stmt.where(Order.created_at >= date_from)
+    if date_until:
+        stmt = stmt.where(Order.created_at <= date_until)
+    
     return db.scalar(stmt) or 0
 
 
@@ -72,6 +91,9 @@ def create_order(
             raise ValueError("Invalid product")
         if prod.stock_qty is None or prod.stock_qty < qty or qty <= 0:
             raise ValueError("Insufficient stock for one or more items")
+        # Validar limite por pedido
+        if prod.max_qty_per_order and prod.max_qty_per_order > 0 and qty > prod.max_qty_per_order:
+            raise ValueError(f"Quantidade máxima por pedido para '{prod.name}': {prod.max_qty_per_order}")
         unit_price: Decimal = prod.price
         subtotal: Decimal = (unit_price or Decimal("0")) * Decimal(qty)
         order_items.append(
@@ -124,6 +146,9 @@ def update_order(db: Session, *, order: Order, data, is_admin: bool = False) -> 
                 raise ValueError("Invalid product")
             if prod.stock_qty is None or prod.stock_qty < qty or qty <= 0:
                 raise ValueError("Insufficient stock for one or more items")
+            # Validar limite por pedido
+            if prod.max_qty_per_order and prod.max_qty_per_order > 0 and qty > prod.max_qty_per_order:
+                raise ValueError(f"Quantidade máxima por pedido para '{prod.name}': {prod.max_qty_per_order}")
             unit_price: Decimal = prod.price
             subtotal: Decimal = (unit_price or Decimal("0")) * Decimal(qty)
             order_items.append(

@@ -11,6 +11,7 @@ export default function ChurchForm({ church, onClose, onSave }: ChurchFormProps)
   const [formData, setFormData] = useState({
     name: '',
     city: '',
+    whatsapp_phone: '',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -20,6 +21,7 @@ export default function ChurchForm({ church, onClose, onSave }: ChurchFormProps)
       setFormData({
         name: church.name || '',
         city: church.city || '',
+        whatsapp_phone: church.whatsapp_phone || '',
       })
     }
   }, [church])
@@ -77,6 +79,18 @@ export default function ChurchForm({ church, onClose, onSave }: ChurchFormProps)
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">WhatsApp</label>
+              <input
+                type="text"
+                placeholder="Ex: 5511999999999 (apenas números)"
+                className="w-full border rounded px-3 py-2"
+                value={formData.whatsapp_phone}
+                onChange={(e) => setFormData({ ...formData, whatsapp_phone: e.target.value.replace(/\D/g, '') })}
+              />
+              <p className="text-xs text-gray-500 mt-1">Código do país + DDD + número (ex: 5511999999999)</p>
             </div>
 
             <div className="flex gap-3 pt-4">

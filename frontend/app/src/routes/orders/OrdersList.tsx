@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
 import { useAuth } from '../../store/auth'
@@ -30,15 +30,29 @@ export default function OrdersList() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalOrders, setTotalOrders] = useState(0)
-  const pageSize = 10
+  const pageSize = 30
   
   // Filtros de data
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateUntil, setDateUntil] = useState<string>('')
   
+  // Filtro por igreja
+  const [churches, setChurches] = useState<any[]>([])
+  const [filterChurchId, setFilterChurchId] = useState<string>('')
+  
   // Batch printing state
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set())
   const [printingBatch, setPrintingBatch] = useState(false)
+  
+  // Carregar igrejas para o filtro
+  const loadChurches = async () => {
+    try {
+      const r = await api.get('/churches?limit=500')
+      setChurches(r.data.data || r.data || [])
+    } catch (e) {
+      console.error('Erro ao carregar igrejas', e)
+    }
+  }
 
   const load = async (page: number = 1) => {
     setLoading(true)
@@ -47,6 +61,7 @@ export default function OrdersList() {
       let url = `/orders?page=${page}&limit=${pageSize}`
       if (dateFrom) url += `&date_from=${dateFrom}`
       if (dateUntil) url += `&date_until=${dateUntil}`
+      if (filterChurchId) url += `&church_id=${filterChurchId}`
       
       const r = await api.get(url)
       setOrders(r.data.data || [])
@@ -60,7 +75,7 @@ export default function OrdersList() {
     }
   }
 
-  useEffect(() => { load(1) }, [])
+  useEffect(() => { load(1); loadChurches(); }, [])
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -88,12 +103,72 @@ export default function OrdersList() {
 
   const [viewOrder, setViewOrder] = useState<any | null>(null)
   const [confirm, setConfirm] = useState<{ id: number; action: 'approve' | 'deliver' | 'cancel' } | null>(null)
+  
+  // Estado para foto do recibo na entrega
+  const [deliveryPhoto, setDeliveryPhoto] = useState<File | null>(null)
+  const [deliveryPhotoPreview, setDeliveryPhotoPreview] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  const handleDeliveryPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    // Validar tipo
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
+    if (!allowedTypes.includes(file.type)) {
+      alert('Tipo de arquivo inválido. Use JPG, PNG ou PDF.')
+      return
+    }
+    
+    // Validar tamanho (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Arquivo muito grande. Tamanho máximo: 10MB.')
+      return
+    }
+    
+    setDeliveryPhoto(file)
+    
+    // Criar preview se for imagem
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader()
+      reader.onload = (ev) => setDeliveryPhotoPreview(ev.target?.result as string)
+      reader.readAsDataURL(file)
+    } else {
+      setDeliveryPhotoPreview(null)
+    }
+  }
+  
+  const clearDeliveryPhoto = () => {
+    setDeliveryPhoto(null)
+    setDeliveryPhotoPreview(null)
+    if (cameraInputRef.current) cameraInputRef.current.value = ''
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   const doConfirm = async () => {
     if (!confirm) return
     try {
       if (confirm.action === 'approve') await api.put(`/orders/${confirm.id}/approve`)
-      if (confirm.action === 'deliver') await api.put(`/orders/${confirm.id}/deliver`)
+      if (confirm.action === 'deliver') {
+        // Se tem foto, faz upload primeiro
+        if (deliveryPhoto) {
+          setUploadingPhoto(true)
+          try {
+            const formData = new FormData()
+            formData.append('file', deliveryPhoto)
+            await api.post(`/orders/${confirm.id}/receipt-upload`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            })
+          } finally {
+            setUploadingPhoto(false)
+          }
+        }
+        // Confirma entrega
+        await api.put(`/orders/${confirm.id}/deliver`)
+        clearDeliveryPhoto()
+      }
       if (confirm.action === 'cancel') await api.put(`/orders/${confirm.id}/cancel`)
       setConfirm(null)
       await load()
@@ -225,6 +300,18 @@ export default function OrdersList() {
             <option value="ENTREGUE">Entregue</option>
             <option value="CANCELADO">Cancelado</option>
           </select>
+          {role === 'ADM' && (
+            <select 
+              value={filterChurchId} 
+              onChange={e => { setFilterChurchId(e.target.value); setTimeout(() => load(1), 100); }}
+              className="border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600"
+            >
+              <option value="">Todas as igrejas</option>
+              {churches.map(c => (
+                <option key={c.id} value={c.id}>{c.name} - {c.city}</option>
+              ))}
+            </select>
+          )}
           <div className="flex gap-2 items-center">
             <label className="text-sm font-medium">De:</label>
             <input 
@@ -246,9 +333,9 @@ export default function OrdersList() {
             >
               Filtrar
             </button>
-            {(dateFrom || dateUntil) && (
+            {(dateFrom || dateUntil || filterChurchId) && (
               <button 
-                onClick={() => { setDateFrom(''); setDateUntil(''); setTimeout(() => load(1), 100); }}
+                onClick={() => { setDateFrom(''); setDateUntil(''); setFilterChurchId(''); setTimeout(() => load(1), 100); }}
                 className="px-2 py-1 border rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Limpar
@@ -359,6 +446,24 @@ export default function OrdersList() {
                         {downloadingId === o.id ? 'Baixando...' : 'Recibo'}
                       </button>
                     )}
+                    {o.whatsapp_phone && (
+                      <a
+                        href={`https://wa.me/${o.whatsapp_phone}?text=${encodeURIComponent(
+                          `📋 *PEDIDO #${o.id}*\n` +
+                          `Igreja: ${o.church_name || 'N/A'} - ${o.church_city || 'N/A'}\n` +
+                          `Data: ${new Date(o.created_at).toLocaleDateString('pt-BR')}\n` +
+                          `*ITENS:*\n${(o.items || []).map((it: any) => `• ${it.product_name || 'Produto'} × ${it.quantity}`).join('\n')}\n` +
+                          `Total: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((o.items || []).reduce((acc: number, it: any) => acc + Number(it.subtotal || 0), 0))}\n` +
+                          `Status: ${o.status}`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-xs font-medium"
+                        title="Enviar via WhatsApp"
+                      >
+                        📱 Zap
+                      </a>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -461,7 +566,7 @@ export default function OrdersList() {
         </Modal>
       )}
       {confirm && (
-        <Modal title={`Confirmação`} onClose={() => setConfirm(null)}>
+        <Modal title={`Confirmação`} onClose={() => { setConfirm(null); clearDeliveryPhoto(); }}>
           <div>
             <p>
               {confirm.action === 'approve' && `Confirma a aprovação do pedido #${confirm.id}?`}
@@ -470,13 +575,81 @@ export default function OrdersList() {
                 <>Confirma o <strong className="text-red-600">cancelamento</strong> do pedido #{confirm.id}? O estoque será restaurado automaticamente.</>
               )}
             </p>
+            
+            {/* Opção de câmera/foto na entrega */}
+            {confirm.action === 'deliver' && (
+              <div className="mt-4 p-3 border rounded bg-gray-50 dark:bg-gray-800 dark:border-gray-600">
+                <div className="font-medium text-sm mb-2">📷 Anexar foto do recibo (opcional)</div>
+                
+                {!deliveryPhoto ? (
+                  <div className="flex gap-2 flex-wrap">
+                    {/* Botão Câmera (mobile) */}
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center gap-1"
+                    >
+                      📷 Tirar Foto
+                    </button>
+                    <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleDeliveryPhotoSelect}
+                      className="hidden"
+                    />
+                    
+                    {/* Botão Arquivo */}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 flex items-center gap-1"
+                    >
+                      📁 Escolher Arquivo
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      onChange={handleDeliveryPhotoSelect}
+                      className="hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {deliveryPhotoPreview && (
+                      <img 
+                        src={deliveryPhotoPreview} 
+                        alt="Preview" 
+                        className="max-h-40 rounded border"
+                      />
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-green-600 dark:text-green-400">✓ {deliveryPhoto.name}</span>
+                      <button
+                        type="button"
+                        onClick={clearDeliveryPhoto}
+                        className="text-red-600 text-sm hover:underline"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                <p className="text-xs text-gray-500 mt-2">Formatos: JPG, PNG, PDF (máx 10MB)</p>
+              </div>
+            )}
+            
             <div className="mt-4 flex gap-2 justify-end">
-              <button className="px-3 py-1 border rounded" onClick={() => setConfirm(null)}>Não</button>
+              <button className="px-3 py-1 border rounded" onClick={() => { setConfirm(null); clearDeliveryPhoto(); }}>Não</button>
               <button 
-                className={`px-3 py-1 text-white rounded ${confirm.action === 'cancel' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                className={`px-3 py-1 text-white rounded ${confirm.action === 'cancel' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:opacity-50`}
                 onClick={doConfirm}
+                disabled={uploadingPhoto}
               >
-                Sim, {confirm.action === 'cancel' ? 'Cancelar' : 'Confirmar'}
+                {uploadingPhoto ? 'Enviando...' : `Sim, ${confirm.action === 'cancel' ? 'Cancelar' : 'Confirmar'}`}
               </button>
             </div>
           </div>

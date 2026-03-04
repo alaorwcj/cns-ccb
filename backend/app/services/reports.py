@@ -478,3 +478,167 @@ def get_user_movements_report(db: Session, church_id: int) -> UserMovementReport
         movements=movements,
         total_movements=len(movements)
     )
+
+
+def generate_orders_excel(
+    db: Session,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    church_id: Optional[int] = None,
+    status: Optional[str] = None
+) -> bytes:
+    """Gera relatório de pedidos em formato Excel"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+    from openpyxl.utils import get_column_letter
+    from io import BytesIO
+    
+    # Query para buscar todos os itens de pedidos com detalhes
+    query = select(
+        Order.id.label('order_id'),
+        Order.created_at,
+        Order.status,
+        Church.name.label('church_name'),
+        Church.city.label('city'),
+        Product.name.label('product_name'),
+        Category.name.label('category_name'),
+        OrderItem.qty,
+        OrderItem.unit_price
+    ).select_from(OrderItem).join(
+        Order, OrderItem.order_id == Order.id
+    ).join(
+        Church, Order.church_id == Church.id
+    ).join(
+        Product, OrderItem.product_id == Product.id
+    ).outerjoin(
+        Category, Product.category_id == Category.id
+    ).order_by(Order.created_at.desc(), Order.id)
+    
+    # Aplicar filtros
+    conditions = []
+    if start_date:
+        conditions.append(Order.created_at >= start_date)
+    if end_date:
+        conditions.append(Order.created_at <= end_date)
+    if church_id:
+        conditions.append(Order.church_id == church_id)
+    if status:
+        conditions.append(Order.status == status)
+    
+    if conditions:
+        query = query.where(and_(*conditions))
+    
+    result = db.execute(query).fetchall()
+    
+    # Criar workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Pedidos"
+    
+    # Estilos
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    currency_format = 'R$ #,##0.00'
+    date_format = 'DD/MM/YYYY HH:MM'
+    
+    # Cabeçalhos
+    headers = [
+        ("Pedido #", 10),
+        ("Data do Pedido", 18),
+        ("Localidade (Igreja)", 30),
+        ("Cidade", 20),
+        ("Produto", 35),
+        ("Categoria", 20),
+        ("Quantidade", 12),
+        ("Valor Unitário", 15),
+        ("Subtotal", 15),
+        ("Status", 12)
+    ]
+    
+    for col, (header, width) in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = thin_border
+        ws.column_dimensions[get_column_letter(col)].width = width
+    
+    # Dados
+    for row_idx, row in enumerate(result, 2):
+        # Pedido #
+        cell = ws.cell(row=row_idx, column=1, value=row.order_id)
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center")
+        
+        # Data do Pedido (remover timezone para Excel)
+        created_at_naive = row.created_at.replace(tzinfo=None) if row.created_at else None
+        cell = ws.cell(row=row_idx, column=2, value=created_at_naive)
+        cell.border = thin_border
+        cell.number_format = date_format
+        
+        # Localidade (Igreja)
+        cell = ws.cell(row=row_idx, column=3, value=row.church_name)
+        cell.border = thin_border
+        
+        # Cidade
+        cell = ws.cell(row=row_idx, column=4, value=row.city or "-")
+        cell.border = thin_border
+        
+        # Produto
+        cell = ws.cell(row=row_idx, column=5, value=row.product_name)
+        cell.border = thin_border
+        
+        # Categoria
+        cell = ws.cell(row=row_idx, column=6, value=row.category_name or "-")
+        cell.border = thin_border
+        
+        # Quantidade
+        cell = ws.cell(row=row_idx, column=7, value=row.qty)
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center")
+        
+        # Valor Unitário
+        cell = ws.cell(row=row_idx, column=8, value=float(row.unit_price) if row.unit_price else 0)
+        cell.border = thin_border
+        cell.number_format = currency_format
+        
+        # Subtotal
+        subtotal = (float(row.unit_price) if row.unit_price else 0) * row.qty
+        cell = ws.cell(row=row_idx, column=9, value=subtotal)
+        cell.border = thin_border
+        cell.number_format = currency_format
+        
+        # Status
+        cell = ws.cell(row=row_idx, column=10, value=row.status)
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center")
+        
+        # Colorir status
+        if row.status == "PENDENTE":
+            cell.fill = PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")
+        elif row.status == "APROVADO":
+            cell.fill = PatternFill(start_color="D1E7DD", end_color="D1E7DD", fill_type="solid")
+        elif row.status == "ENTREGUE":
+            cell.fill = PatternFill(start_color="CFE2FF", end_color="CFE2FF", fill_type="solid")
+        elif row.status == "CANCELADO":
+            cell.fill = PatternFill(start_color="F8D7DA", end_color="F8D7DA", fill_type="solid")
+    
+    # Congelar primeira linha
+    ws.freeze_panes = "A2"
+    
+    # Filtros automáticos
+    ws.auto_filter.ref = ws.dimensions
+    
+    # Salvar em bytes
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return output.getvalue()

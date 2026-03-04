@@ -23,7 +23,7 @@ def get_products(
     category_id: Optional[int] = None,
     q: Optional[str] = Query(default=None, alias="search"),
     page: int = Query(default=1, ge=1),
-    limit: int = Query(default=50, ge=1, le=100),
+    limit: int = Query(default=50, ge=1, le=500),
 ):
     data = list_products(db, category_id=category_id, q=q, page=page, limit=limit)
     total = count_products(db, category_id=category_id, q=q)
