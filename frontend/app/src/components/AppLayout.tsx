@@ -36,6 +36,15 @@ function Icon({ name }: { name: string }) {
           <path d="M19 3v18" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )
+    case 'inventory':
+      return (
+        <svg className="h-5 w-5 mr-2 text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M9 11H3v8h6v-8z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9 6H3v3h6V6z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M21 11h-6v8h6v-8z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M21 6h-6v3h6V6z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )
     case 'products':
       return (
         <svg className="h-5 w-5 mr-2 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -121,6 +130,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     ];
 
     const adminItems = [
+      { to: "/inventory", icon: "inventory", label: "Inventário", roles: ["ADM"] },
       { to: "/products", icon: "products", label: "Produtos", roles: ["ADM"] },
       { to: "/categories", icon: "categories", label: "Categorias", roles: ["ADM"] },
       { to: "/users", icon: "users", label: "Usuários", roles: ["ADM"] },

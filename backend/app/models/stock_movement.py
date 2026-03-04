@@ -2,8 +2,11 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, String
+from decimal import Decimal
+
+from sqlalchemy import Date, DateTime, Enum as SAEnum, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import date
 
 from app.db.base import Base
 
@@ -24,6 +27,9 @@ class StockMovement(Base):
     qty: Mapped[int] = mapped_column(Integer, nullable=False)
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
     related_order_id: Mapped[int | None] = mapped_column(ForeignKey("orders.id"), nullable=True)
+    unit_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    invoice_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    invoice_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     product = relationship("Product", back_populates="movements")

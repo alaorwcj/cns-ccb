@@ -10,10 +10,11 @@ from app.models.product import Product
 from app.models.church import Church
 from app.models.user import User
 from app.services.stock import add_movement
-from app.models.stock_movement import MovementType
+from app.models.stock_movement import MovementType, StockMovement
 
 
-def list_orders_for_user(db: Session, *, user: User, is_admin: bool, page: int = 1, limit: int = 10) -> List[Order]:
+def list_orders_for_user(db: Session, *, user: User, is_admin: bool, page: int = 1, limit: int = 10, 
+                         date_from: datetime = None, date_until: datetime = None) -> List[Order]:
     # ensure we also load related product objects for each order item so callers can include product.name
     from app.models.order import OrderItem
     stmt = select(Order).options(
@@ -26,6 +27,13 @@ def list_orders_for_user(db: Session, *, user: User, is_admin: bool, page: int =
         if not church_ids:
             return []
         stmt = stmt.where(Order.church_id.in_(church_ids))
+    
+    # Filtro por data
+    if date_from:
+        stmt = stmt.where(Order.created_at >= date_from)
+    if date_until:
+        stmt = stmt.where(Order.created_at <= date_until)
+    
     stmt = stmt.offset((page - 1) * limit).limit(limit)
     return list(db.scalars(stmt))
 
@@ -83,9 +91,12 @@ def create_order(
     return order
 
 
-def update_order(db: Session, *, order: Order, data) -> Order:
-    if order.status != OrderStatus.PENDENTE:
-        raise ValueError("Only pending orders can be updated")
+def update_order(db: Session, *, order: Order, data, is_admin: bool = False) -> Order:
+    # Permitir edição de pedidos PENDENTES sempre, ou APROVADOS se for admin
+    if order.status == OrderStatus.ENTREGUE:
+        raise ValueError("Delivered orders cannot be updated")
+    if order.status == OrderStatus.APROVADO and not is_admin:
+        raise ValueError("Only administrators can update approved orders")
 
     if data.church_id is not None:
         order.church_id = data.church_id
@@ -94,6 +105,15 @@ def update_order(db: Session, *, order: Order, data) -> Order:
         items = [(it.product_id, it.qty) for it in data.items]
         if not items:
             raise ValueError("Order must have items")
+
+        # Se pedido já estava APROVADO, reverter movimentações de estoque antigas
+        if order.status == OrderStatus.APROVADO:
+            for old_item in order.items:
+                prod = db.get(Product, old_item.product_id)
+                if prod:
+                    prod.stock_qty = (prod.stock_qty or 0) + old_item.qty  # Devolver ao estoque
+            # Deletar movimentações antigas relacionadas a este pedido
+            db.query(StockMovement).filter(StockMovement.related_order_id == order.id).delete()
 
         prods = {p.id: p for p in db.scalars(select(Product).where(Product.id.in_([pid for pid, _ in items])))}
         order_items: List[OrderItem] = []
@@ -112,6 +132,21 @@ def update_order(db: Session, *, order: Order, data) -> Order:
 
         # replace items
         order.items = order_items
+        
+        # Se ainda está APROVADO, reaplicar movimentações de estoque com novos itens
+        if order.status == OrderStatus.APROVADO:
+            for it in order.items:
+                prod = db.get(Product, it.product_id)
+                if prod:
+                    prod.stock_qty = (prod.stock_qty or 0) - it.qty
+                    add_movement(
+                        db,
+                        product_id=it.product_id,
+                        type=MovementType.SAIDA_PEDIDO,
+                        qty=it.qty,
+                        note=f"Pedido #{order.id} editado",
+                        related_order_id=order.id,
+                    )
 
     db.commit()
     db.refresh(order)
@@ -158,6 +193,29 @@ def sign_order(db: Session, *, order: Order, signer_user_id: int) -> Order:
     """Mark the order as signed by the given user and set timestamp."""
     order.signed_by_id = signer_user_id
     order.signed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+def cancel_order(db: Session, *, order: Order) -> Order:
+    """Cancel an approved order and restore stock (ADM only)."""
+    if order.status == OrderStatus.ENTREGUE:
+        raise ValueError("Cannot cancel a delivered order")
+    if order.status == OrderStatus.CANCELADO:
+        raise ValueError("Order is already cancelled")
+    
+    # Se estava APROVADO, reverter o estoque
+    if order.status == OrderStatus.APROVADO:
+        for item in order.items:
+            prod = db.get(Product, item.product_id)
+            if prod:
+                prod.stock_qty = (prod.stock_qty or 0) + item.qty
+        
+        # Deletar movimentações relacionadas
+        db.query(StockMovement).filter(StockMovement.related_order_id == order.id).delete()
+    
+    order.status = OrderStatus.CANCELADO
     db.commit()
     db.refresh(order)
     return order

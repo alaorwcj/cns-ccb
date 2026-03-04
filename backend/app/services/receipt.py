@@ -202,12 +202,8 @@ def generate_order_receipt_pdf(db: Session, order: Order) -> bytes:
         y -= 10
         c.drawString(30, y, "Em caso de divergências, entrar em contato com a administração em até 24 horas.")
 
-    # Draw VIA ADMINISTRAÇÃO
-    draw_receipt_page("ADMINISTRAÇÃO")
-    c.showPage()
-    
-    # Draw VIA COMPRADOR
-    draw_receipt_page("COMPRADOR")
+    # Draw single receipt (1 via apenas)
+    draw_receipt_page("VIA ÚNICA")
     c.showPage()
     
     c.save()
@@ -406,12 +402,8 @@ def generate_batch_receipts_pdf(db: Session, orders: List[Order]) -> bytes:
             y -= 10
             c.drawString(30, y, "Em caso de divergências, entrar em contato com a administração em até 24 horas.")
 
-        # Draw VIA ADMINISTRAÇÃO for this order
-        draw_receipt_page("ADMINISTRAÇÃO")
-        c.showPage()
-        
-        # Draw VIA COMPRADOR for this order
-        draw_receipt_page("COMPRADOR")
+        # Draw single receipt for this order (1 via apenas)
+        draw_receipt_page("VIA ÚNICA")
         c.showPage()
     
     c.save()

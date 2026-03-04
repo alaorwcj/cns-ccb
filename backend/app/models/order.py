@@ -4,7 +4,7 @@ from enum import Enum
 from decimal import Decimal
 from typing import List
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, Numeric
+from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -14,6 +14,7 @@ class OrderStatus(str, Enum):
     PENDENTE = "PENDENTE"
     APROVADO = "APROVADO"
     ENTREGUE = "ENTREGUE"
+    CANCELADO = "CANCELADO"
 
 
 class Order(Base):
@@ -28,6 +29,7 @@ class Order(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     signed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    signed_receipt_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     requester = relationship("User", back_populates="requests", foreign_keys=[requester_id])
     signed_by = relationship("User", foreign_keys=[signed_by_id])

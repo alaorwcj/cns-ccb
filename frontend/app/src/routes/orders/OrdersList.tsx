@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
 import { useAuth } from '../../store/auth'
 import Modal from '../../components/Modal'
+import ReceiptUpload from '../../components/ReceiptUpload'
 
 type StatusBadgeProps = { status: string }
 function StatusBadge({ status }: StatusBadgeProps) {
@@ -10,6 +11,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
     PENDENTE: 'bg-yellow-100 text-yellow-800',
     APROVADO: 'bg-blue-100 text-blue-800',
     ENTREGUE: 'bg-green-100 text-green-800',
+    CANCELADO: 'bg-red-100 text-red-800',
   }
   return (
     <span className={`px-2 py-1 rounded text-xs font-semibold ${colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'}`}>
@@ -30,6 +32,10 @@ export default function OrdersList() {
   const [totalOrders, setTotalOrders] = useState(0)
   const pageSize = 10
   
+  // Filtros de data
+  const [dateFrom, setDateFrom] = useState<string>('')
+  const [dateUntil, setDateUntil] = useState<string>('')
+  
   // Batch printing state
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set())
   const [printingBatch, setPrintingBatch] = useState(false)
@@ -38,7 +44,11 @@ export default function OrdersList() {
     setLoading(true)
     setError(null)
     try {
-      const r = await api.get(`/orders?page=${page}&limit=${pageSize}`)
+      let url = `/orders?page=${page}&limit=${pageSize}`
+      if (dateFrom) url += `&date_from=${dateFrom}`
+      if (dateUntil) url += `&date_until=${dateUntil}`
+      
+      const r = await api.get(url)
       setOrders(r.data.data || [])
       setTotalOrders(r.data.total || 0)
       setTotalPages(Math.ceil((r.data.total || 0) / pageSize))
@@ -72,14 +82,19 @@ export default function OrdersList() {
     setConfirm({ id, action: 'deliver' })
   }
 
+  const cancel = async (id: number) => {
+    setConfirm({ id, action: 'cancel' })
+  }
+
   const [viewOrder, setViewOrder] = useState<any | null>(null)
-  const [confirm, setConfirm] = useState<{ id: number; action: 'approve' | 'deliver' } | null>(null)
+  const [confirm, setConfirm] = useState<{ id: number; action: 'approve' | 'deliver' | 'cancel' } | null>(null)
 
   const doConfirm = async () => {
     if (!confirm) return
     try {
       if (confirm.action === 'approve') await api.put(`/orders/${confirm.id}/approve`)
       if (confirm.action === 'deliver') await api.put(`/orders/${confirm.id}/deliver`)
+      if (confirm.action === 'cancel') await api.put(`/orders/${confirm.id}/cancel`)
       setConfirm(null)
       await load()
     } catch (e: any) {
@@ -140,6 +155,11 @@ export default function OrdersList() {
     setSelectedOrders(new Set(deliveredIds))
   }
 
+  const selectAllApproved = () => {
+    const approvedIds = orders.filter(o => o.status === 'APROVADO').map(o => o.id)
+    setSelectedOrders(new Set(approvedIds))
+  }
+
   const clearSelection = () => {
     setSelectedOrders(new Set())
   }
@@ -193,14 +213,48 @@ export default function OrdersList() {
             </div>
           )}
           {role === 'ADM' && selectedOrders.size === 0 && (
-            <button onClick={selectAllDelivered} className="px-2 py-1 border rounded text-xs hover:bg-gray-50 dark:hover:bg-gray-700">Selecionar Entregues</button>
+            <>
+              <button onClick={selectAllApproved} className="px-2 py-1 border rounded text-xs hover:bg-gray-50 dark:hover:bg-gray-700">Selecionar Aprovados</button>
+              <button onClick={selectAllDelivered} className="px-2 py-1 border rounded text-xs hover:bg-gray-50 dark:hover:bg-gray-700">Selecionar Entregues</button>
+            </>
           )}
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border rounded px-2 py-1 text-sm">
             <option value="all">Todos os status</option>
             <option value="PENDENTE">Pendente</option>
             <option value="APROVADO">Aprovado</option>
             <option value="ENTREGUE">Entregue</option>
+            <option value="CANCELADO">Cancelado</option>
           </select>
+          <div className="flex gap-2 items-center">
+            <label className="text-sm font-medium">De:</label>
+            <input 
+              type="date" 
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600"
+            />
+            <label className="text-sm font-medium">Até:</label>
+            <input 
+              type="date" 
+              value={dateUntil}
+              onChange={(e) => setDateUntil(e.target.value)}
+              className="border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600"
+            />
+            <button 
+              onClick={() => load(1)} 
+              className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+            >
+              Filtrar
+            </button>
+            {(dateFrom || dateUntil) && (
+              <button 
+                onClick={() => { setDateFrom(''); setDateUntil(''); setTimeout(() => load(1), 100); }}
+                className="px-2 py-1 border rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
         </div>
       </div>
       {error && <div className="p-4 text-red-600">{error}</div>}
@@ -247,7 +301,7 @@ export default function OrdersList() {
               <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 {role === 'ADM' && (
                   <td className="p-3">
-                    {o.status === 'ENTREGUE' && (
+                    {(o.status === 'APROVADO' || o.status === 'ENTREGUE') && (
                       <input 
                         type="checkbox" 
                         checked={selectedOrders.has(o.id)}
@@ -257,7 +311,12 @@ export default function OrdersList() {
                     )}
                   </td>
                 )}
-                <td className="p-3 font-mono text-xs">{o.id}</td>
+                <td className="p-3 font-mono text-xs">
+                  {o.id}
+                  {o.signed_receipt_path && (
+                    <span className="ml-1 text-green-600" title="Recibo assinado anexado">📎</span>
+                  )}
+                </td>
                 <td className="p-3 font-medium min-w-0"><div className="truncate">{o.church_name || `Igreja #${o.church_id}`}</div></td>
                 <td className="p-3 text-gray-600 dark:text-gray-300 min-w-0"><div className="truncate">{o.church_city || '-'}</div></td>
                 <td className="p-3"><StatusBadge status={o.status} /></td>
@@ -278,7 +337,18 @@ export default function OrdersList() {
                       <button className="px-3 py-1 rounded bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-medium" onClick={() => approve(o.id)}>Aprovar</button>
                     )}
                     {role === 'ADM' && o.status === 'APROVADO' && (
-                      <button className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white text-xs font-medium" onClick={() => deliver(o.id)}>Entregar</button>
+                      <>
+                        <button className="px-2 py-1 rounded bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border border-orange-300 dark:border-orange-700 text-xs" onClick={() => startEdit(o)}>Editar</button>
+                        <button className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white text-xs font-medium" onClick={() => deliver(o.id)}>Entregar</button>
+                        <button className="px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs font-medium" onClick={() => cancel(o.id)}>Cancelar</button>
+                        <button
+                          className={`inline-block px-3 py-1 rounded text-white text-xs font-medium ${downloadingId === o.id ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+                          onClick={() => downloadReceipt(o.id)}
+                          disabled={downloadingId === o.id}
+                        >
+                          {downloadingId === o.id ? 'Baixando...' : 'Recibo'}
+                        </button>
+                      </>
                     )}
                     {role === 'ADM' && o.status === 'ENTREGUE' && (
                       <button
@@ -373,7 +443,18 @@ export default function OrdersList() {
               )}</div>
             )}
 
-            <div className="flex gap-2 justify-end">
+            {/* Upload recibo assinado */}
+            <ReceiptUpload 
+              orderId={viewOrder.id} 
+              currentReceipt={viewOrder.signed_receipt_path}
+              onUploadSuccess={() => {
+                load(currentPage)
+                setViewOrder(null)
+              }}
+              isAdmin={role === 'ADM'}
+            />
+
+            <div className="flex gap-2 justify-end mt-4">
               <button className="px-3 py-1 border rounded" onClick={() => setViewOrder(null)}>Fechar</button>
             </div>
           </div>
@@ -382,10 +463,21 @@ export default function OrdersList() {
       {confirm && (
         <Modal title={`Confirmação`} onClose={() => setConfirm(null)}>
           <div>
-            <p>Confirma a ação <strong>{confirm.action}</strong> para pedido #{confirm.id}?</p>
+            <p>
+              {confirm.action === 'approve' && `Confirma a aprovação do pedido #${confirm.id}?`}
+              {confirm.action === 'deliver' && `Confirma a entrega do pedido #${confirm.id}?`}
+              {confirm.action === 'cancel' && (
+                <>Confirma o <strong className="text-red-600">cancelamento</strong> do pedido #{confirm.id}? O estoque será restaurado automaticamente.</>
+              )}
+            </p>
             <div className="mt-4 flex gap-2 justify-end">
-              <button className="px-3 py-1 border rounded" onClick={() => setConfirm(null)}>Cancelar</button>
-              <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={doConfirm}>Confirmar</button>
+              <button className="px-3 py-1 border rounded" onClick={() => setConfirm(null)}>Não</button>
+              <button 
+                className={`px-3 py-1 text-white rounded ${confirm.action === 'cancel' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                onClick={doConfirm}
+              >
+                Sim, {confirm.action === 'cancel' ? 'Cancelar' : 'Confirmar'}
+              </button>
             </div>
           </div>
         </Modal>

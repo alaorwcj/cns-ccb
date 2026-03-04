@@ -40,6 +40,7 @@ class AuditResource(str, Enum):
     CATEGORY = "CATEGORY"
     CHURCH = "CHURCH"
     STOCK = "STOCK"
+    INVENTORY = "INVENTORY"
     AUTH = "AUTH"
     SYSTEM = "SYSTEM"
 

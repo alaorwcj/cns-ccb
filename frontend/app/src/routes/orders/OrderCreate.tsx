@@ -84,9 +84,22 @@ export default function OrderCreate() {
   }
 
   if (loading) return <div>Carregando...</div>
+
+  // Calculate delivery month (next month)
+  const now = new Date()
+  const deliveryMonth = now.getMonth() + 1 // next month (0-indexed, so +1 gives next)
+  const deliveryYear = deliveryMonth > 11 ? now.getFullYear() + 1 : now.getFullYear()
+  const actualDeliveryMonth = deliveryMonth > 11 ? 0 : deliveryMonth
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+  const deliveryMonthName = monthNames[actualDeliveryMonth]
+
   return (
     <div className="grid gap-4">
       {error && <div className="text-red-600">{error}</div>}
+      <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+        📅 <strong>Previsão de entrega:</strong> {deliveryMonthName}/{deliveryYear}
+      </div>
       <div className="flex gap-2 items-center">
         <select className="border rounded px-2 py-1" value={filterCat}
           onChange={(e) => setFilterCat(e.target.value === 'all' ? 'all' : Number(e.target.value))}>

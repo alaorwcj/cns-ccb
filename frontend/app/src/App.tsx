@@ -12,6 +12,8 @@ import ChurchesList from './routes/churches/ChurchesList'
 import CategoriesList from './routes/categories/CategoriesList'
 import Reports from './routes/reports/Reports'
 import AuditLogs from './routes/audit/AuditLogs'
+import InventoryList from './routes/inventory/InventoryList'
+import InventoryCount from './routes/inventory/InventoryCount'
 import Layout from './components/AppLayout'
 import ResetConfirm from './routes/auth/ResetConfirm'
 import ResetInit from './routes/auth/ResetInit'
@@ -37,6 +39,7 @@ function Nav() {
             <Link to="/orders" className="truncate">Pedidos</Link>
             <Link to="/orders/new" className="truncate">Novo Pedido</Link>
             <Link to="/stock" className="truncate">Movimentações</Link>
+            {role === 'ADM' && <Link to="/inventory" className="truncate">Inventário</Link>}
             <Link to="/reports" className="truncate">Relatórios</Link>
             <Link to="/products" className="truncate">Produtos</Link>
             <Link to="/categories" className="truncate">Categorias</Link>
@@ -70,6 +73,8 @@ export default function App() {
         <Route path="/orders/new" element={<Protected><Layout><OrderCreate /></Layout></Protected>} />
         <Route path="/orders/:id/edit" element={<Protected><Layout><OrderEdit /></Layout></Protected>} />
         <Route path="/stock" element={<Protected><Layout><Movements /></Layout></Protected>} />
+        <Route path="/inventory" element={<Protected roles={["ADM"]}><Layout><InventoryList /></Layout></Protected>} />
+        <Route path="/inventory/:id" element={<Protected roles={["ADM"]}><Layout><InventoryCount /></Layout></Protected>} />
         <Route path="/reports" element={<Protected><Layout><Reports /></Layout></Protected>} />
         <Route path="/products" element={<Protected roles={["ADM"]}><Layout><ProductsList /></Layout></Protected>} />
         <Route path="/categories" element={<Protected roles={["ADM"]}><Layout><CategoriesList /></Layout></Protected>} />

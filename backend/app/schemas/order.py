@@ -51,6 +51,7 @@ class OrderRead(BaseModel):
     items: List[OrderItemRead]
     signed_by_id: Optional[int] = None
     signed_at: Optional[datetime] = None
+    signed_receipt_path: Optional[str] = None
 
     class Config:
         from_attributes = True

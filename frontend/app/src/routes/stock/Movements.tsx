@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../../services/api'
 import StockMovementForm from '../../components/StockMovementForm'
+import BatchStockEntry from '../../components/BatchStockEntry'
 
 // Versão limpa e mínima do componente Movements (mobile-first)
 type Movement = any
@@ -20,6 +21,7 @@ export default function Movements(): JSX.Element {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [showBatchEntry, setShowBatchEntry] = useState(false)
   const [filterType, setFilterType] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -70,6 +72,7 @@ export default function Movements(): JSX.Element {
   return (
     <div className="min-w-0">
       {showForm && <StockMovementForm onClose={() => setShowForm(false)} onSave={() => { setShowForm(false); load(currentPage) }} />}
+      {showBatchEntry && <BatchStockEntry onClose={() => setShowBatchEntry(false)} onSave={() => { setShowBatchEntry(false); load(currentPage) }} />}
 
       <div className="mb-4 flex justify-between items-center">
         <h2 className="font-semibold">Movimentações de Estoque</h2>
@@ -81,7 +84,8 @@ export default function Movements(): JSX.Element {
             <option value="SAIDA_PEDIDO">Saída Pedido</option>
             <option value="PERDA">Perda</option>
           </select>
-          <button onClick={() => setShowForm(true)} className="px-3 py-1 bg-blue-600 text-white rounded">+ Nova</button>
+          <button onClick={() => setShowBatchEntry(true)} className="px-3 py-1 bg-green-600 text-white rounded text-sm">📦 Entrada Múltipla</button>
+          <button onClick={() => setShowForm(true)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">+ Nova</button>
         </div>
       </div>
 

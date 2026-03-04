@@ -29,6 +29,6 @@ class Product(Base):
     )
     movements: Mapped[List["StockMovement"]] = relationship(
         back_populates="product",
-        lazy="selectin",
+        lazy="select",
         cascade="all,delete-orphan",
     )

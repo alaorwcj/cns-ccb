@@ -23,6 +23,10 @@ def add_movement(
     qty: int,
     note: Optional[str] = None,
     related_order_id: Optional[int] = None,
+    unit_price: Optional[float] = None,  # Novo: preço unitário para atualizar produto
+    invoice_number: Optional[str] = None,  # Número da nota fiscal
+    invoice_date: Optional[datetime] = None,  # Data da nota fiscal
+    commit: bool = True,  # Se False, não faz commit (para uso em batch)
 ) -> StockMovement:
     if qty <= 0:
         raise ValueError("qty must be > 0")
@@ -32,6 +36,25 @@ def add_movement(
 
     delta = qty if type == MovementType.ENTRADA else -qty
     apply_stock_change(db, product, delta)
+    
+    # Se for ENTRADA e informou novo preço, atualizar preço do produto e recalcular pedidos abertos
+    if type == MovementType.ENTRADA and unit_price is not None and unit_price > 0:
+        from decimal import Decimal
+        old_price = product.price
+        new_price = Decimal(str(unit_price))
+        product.price = new_price
+        
+        # Recalcular pedidos PENDENTES e APROVADOS (não ENTREGUE)
+        from app.models.order import Order, OrderItem, OrderStatus
+        pending_or_approved_orders = db.query(Order).filter(
+            Order.status.in_([OrderStatus.PENDENTE, OrderStatus.APROVADO])
+        ).all()
+        
+        for order in pending_or_approved_orders:
+            for item in order.items:
+                if item.product_id == product_id:
+                    item.unit_price = new_price
+                    item.subtotal = item.qty * new_price
 
     mv = StockMovement(
         product_id=product_id,
@@ -39,11 +62,17 @@ def add_movement(
         qty=qty,
         note=note,
         related_order_id=related_order_id,
+        unit_price=unit_price,
+        invoice_number=invoice_number,
+        invoice_date=invoice_date,
         created_at=datetime.utcnow(),
     )
     db.add(mv)
-    db.commit()
-    db.refresh(mv)
+    if commit:
+        db.commit()
+        db.refresh(mv)
+    else:
+        db.flush()  # Gera o ID sem fazer commit
     return mv
 
 

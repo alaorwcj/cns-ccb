@@ -1,7 +1,10 @@
 from datetime import datetime
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi.responses import Response
+import os
+import uuid
+from pathlib import Path
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi.responses import Response, FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import db_dep, require_role
@@ -23,14 +26,31 @@ def get_orders(
     payload: dict = Depends(get_current_user_token),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=10, ge=1, le=50),
+    date_from: str = Query(default=None, description="Filtro data inicial (YYYY-MM-DD)"),
+    date_until: str = Query(default=None, description="Filtro data final (YYYY-MM-DD)"),
 ):
     is_admin = payload.get("role") == UserRole.ADM.value
     user_id = int(payload.get("user_id"))
     from app.models.user import User
     from app.services.orders import count_orders_for_user
 
+    # Parse date filters
+    date_from_dt = None
+    date_until_dt = None
+    if date_from:
+        try:
+            date_from_dt = datetime.fromisoformat(date_from)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date_from format. Use YYYY-MM-DD")
+    if date_until:
+        try:
+            date_until_dt = datetime.fromisoformat(date_until + " 23:59:59")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date_until format. Use YYYY-MM-DD")
+
     user = db.get(User, user_id)
-    orders = list_orders_for_user(db, user=user, is_admin=is_admin, page=page, limit=limit)
+    orders = list_orders_for_user(db, user=user, is_admin=is_admin, page=page, limit=limit, 
+                                   date_from=date_from_dt, date_until=date_until_dt)
     total = count_orders_for_user(db, user=user, is_admin=is_admin)
     # Add church_name and church_city to each order
     for order in orders:
@@ -49,6 +69,18 @@ def get_orders(
 def post_order(data: OrderCreate, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
     user_id = int(payload.get("user_id"))
     is_admin = payload.get("role") == UserRole.ADM.value
+    
+    # Validação data de corte: bloquear criação após dia 20 (exceto admin)
+    from datetime import datetime
+    import pytz
+    brasilia_tz = pytz.timezone('America/Sao_Paulo')
+    now_brasilia = datetime.now(brasilia_tz)
+    if now_brasilia.day > 20 and not is_admin:
+        raise HTTPException(
+            status_code=403, 
+            detail="Período de pedidos encerrado. Novos pedidos podem ser criados a partir do dia 1º do próximo mês. Contate o administrador em caso de urgência."
+        )
+    
     # ensure user is allowed to create orders for the chosen church
     from app.models.user import User as UserModel, user_church
     from sqlalchemy import select, func
@@ -108,8 +140,9 @@ def receipt(order_id: int, db: Session = Depends(db_dep), payload: dict = Depend
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if order.status != OrderStatus.ENTREGUE:
-        raise HTTPException(status_code=400, detail="Order not delivered yet")
+    # Permitir imprimir se APROVADO ou ENTREGUE
+    if order.status not in [OrderStatus.APROVADO, OrderStatus.ENTREGUE]:
+        raise HTTPException(status_code=400, detail="Order must be approved or delivered to print receipt")
 
     # allow ADM or the requester who created the order
     user_role = payload.get("role")
@@ -146,9 +179,22 @@ def deliver(order_id: int, db: Session = Depends(db_dep), _adm=Depends(require_r
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.put("/{order_id}/cancel", response_model=OrderRead)
+def cancel(order_id: int, db: Session = Depends(db_dep), _adm=Depends(require_role("ADM"))):
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    try:
+        from app.services.orders import cancel_order
+        return cancel_order(db, order=order)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.put("/{order_id}", response_model=OrderRead)
 def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
-    # Allow requester or ADM to update while PENDENTE
+    # Allow requester or ADM to update PENDENTE
+    # Allow ADM to update APROVADO
     user_id = int(payload.get("user_id"))
     user_role = payload.get("role")
     is_admin = user_role == UserRole.ADM.value
@@ -157,18 +203,19 @@ def update(order_id: int, data: OrderUpdate, db: Session = Depends(db_dep), payl
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    # Check order status first
-    if order.status != OrderStatus.PENDENTE:
-        raise HTTPException(status_code=400, detail="Only pending orders can be updated")
+    # Check order status
+    if order.status == OrderStatus.ENTREGUE:
+        raise HTTPException(status_code=400, detail="Delivered orders cannot be updated")
+    if order.status == OrderStatus.APROVADO and not is_admin:
+        raise HTTPException(status_code=403, detail="Only administrators can update approved orders")
     
-    # Allow update if: (1) ADM, or (2) user belongs to the order's church
-    # Users can now edit any pending order from their assigned churches
-    if not is_admin:
+    # Allow update if: (1) ADM, or (2) user belongs to the order's church (for PENDENTE)
+    if not is_admin and order.status == OrderStatus.PENDENTE:
         if not order.church or not any(u.id == user_id for u in order.church.users):
             raise HTTPException(status_code=403, detail="Not allowed")
     
     try:
-        return update_order(db, order=order, data=data)
+        return update_order(db, order=order, data=data, is_admin=is_admin)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -217,13 +264,118 @@ def batch_receipts(data: BatchReceiptsRequest, db: Session = Depends(db_dep), _a
         selectinload(Order.requester),
         selectinload(Order.signed_by),
         selectinload(Order.items).selectinload(OrderItem.product)
-    ).where(Order.id.in_(order_ids), Order.status == OrderStatus.ENTREGUE)
+    ).where(Order.id.in_(order_ids), Order.status.in_([OrderStatus.APROVADO, OrderStatus.ENTREGUE]))
     
     orders = list(db.scalars(stmt))
     
     if not orders:
-        raise HTTPException(status_code=404, detail="No delivered orders found with provided IDs")
+        raise HTTPException(status_code=404, detail="Nenhum pedido aprovado ou entregue encontrado com os IDs fornecidos")
     
     pdf = generate_batch_receipts_pdf(db, orders)
     headers = {"Content-Disposition": f"attachment; filename=recibos_lote.pdf"}
     return Response(content=pdf, media_type="application/pdf", headers=headers)
+
+
+@router.post("/{order_id}/receipt-upload")
+def upload_signed_receipt(
+    order_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(db_dep),
+    payload: dict = Depends(get_current_user_token)
+):
+    """Upload signed receipt for an order (ADM only or order requester)."""
+    # Check if user is admin or order requester
+    user_id = int(payload.get("user_id"))
+    is_admin = payload.get("role") == UserRole.ADM.value
+    
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Only admin or requester can upload
+    if not is_admin and order.requester_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to upload receipt for this order")
+    
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/jpg", "image/png", "application/pdf"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, and PDF are allowed")
+    
+    # Validate file size (10MB max)
+    file.file.seek(0, 2)  # Seek to end
+    file_size = file.file.tell()
+    file.file.seek(0)  # Reset to beginning
+    
+    if file_size > 10 * 1024 * 1024:  # 10MB in bytes
+        raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
+    
+    # Generate unique filename
+    file_extension = Path(file.filename).suffix
+    unique_filename = f"{order_id}_{uuid.uuid4().hex}{file_extension}"
+    
+    # Create upload directory if it doesn't exist
+    upload_dir = Path("/app/uploads/receipts")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Save file
+    file_path = upload_dir / unique_filename
+    with open(file_path, "wb") as buffer:
+        buffer.write(file.file.read())
+    
+    # Delete old file if exists
+    if order.signed_receipt_path:
+        old_file = Path(f"/app/uploads/receipts/{order.signed_receipt_path}")
+        if old_file.exists():
+            old_file.unlink()
+    
+    # Update order with new file path
+    order.signed_receipt_path = unique_filename
+    db.commit()
+    db.refresh(order)
+    
+    return {"message": "Receipt uploaded successfully", "filename": unique_filename}
+
+
+@router.get("/receipts/{filename}")
+def get_signed_receipt(filename: str, db: Session = Depends(db_dep), payload: dict = Depends(get_current_user_token)):
+    """Download a signed receipt file."""
+    # Validate filename to prevent directory traversal
+    if ".." in filename or "/" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    file_path = Path(f"/app/uploads/receipts/{filename}")
+    
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Determine media type
+    media_type = "application/pdf" if file_path.suffix == ".pdf" else "image/jpeg"
+    
+    return FileResponse(file_path, media_type=media_type)
+
+
+@router.delete("/{order_id}/receipt-upload")
+def delete_signed_receipt(
+    order_id: int,
+    db: Session = Depends(db_dep),
+    _adm=Depends(require_role("ADM"))
+):
+    """Delete signed receipt for an order (ADM only)."""
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if not order.signed_receipt_path:
+        raise HTTPException(status_code=404, detail="No receipt file attached to this order")
+    
+    # Delete file
+    file_path = Path(f"/app/uploads/receipts/{order.signed_receipt_path}")
+    if file_path.exists():
+        file_path.unlink()
+    
+    # Update order
+    order.signed_receipt_path = None
+    db.commit()
+    
+    return {"message": "Receipt deleted successfully"}
+
